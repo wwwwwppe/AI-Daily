@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# RSS / Atom news sources
+# Each entry: name, url, and optional max_items (default 5)
+# ─────────────────────────────────────────────────────────────────────────────
+rss_sources:
+  - name: MIT Technology Review
+    url: https://www.technologyreview.com/feed/
+    max_items: 5
+
+  - name: TechCrunch AI
+    url: https://techcrunch.com/category/artificial-intelligence/feed/
+    max_items: 5
+
+  - name: Wired
+    url: https://www.wired.com/feed/rss
+    max_items: 3
+
+  - name: The Verge AI
+    url: https://www.theverge.com/ai-artificial-intelligence/rss/index.xml
+    max_items: 3
+
+  - name: VentureBeat AI
+    url: https://venturebeat.com/category/ai/feed/
+    max_items: 5
+
+  - name: Google AI Blog
+    url: https://blog.google/technology/ai/rss/
+    max_items: 3
+
+  - name: OpenAI Blog
+    url: https://openai.com/blog/rss.xml
+    max_items: 3
+
+  - name: Hugging Face Blog
+    url: https://huggingface.co/blog/feed.xml
+    max_items: 3
+
+  - name: DeepMind Blog
+    url: https://www.deepmind.com/blog/rss.xml
+    max_items: 3
+
+  - name: Hacker News (top AI stories)
+    url: https://hnrss.org/newest?q=AI+OR+LLM+OR+machine+learning&points=50
+    max_items: 5
+
+  - name: InfoQ AI
+    url: https://feed.infoq.com/
+    max_items: 3
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Twitter / X influencer accounts to follow
+# Requires TWITTER_BEARER_TOKEN in .env
+# ─────────────────────────────────────────────────────────────────────────────
+twitter_accounts:
+  - username: sama          # Sam Altman (OpenAI)
+    max_tweets: 3
+  - username: ylecun         # Yann LeCun (Meta AI)
+    max_tweets: 3
+  - username: karpathy       # Andrej Karpathy
+    max_tweets: 3
+  - username: emostaque      # Emad Mostaque
+    max_tweets: 2
+  - username: DrJimFan       # Jim Fan (NVIDIA)
+    max_tweets: 2
+  - username: hardmaru       # David Ha
+    max_tweets: 2
+  - username: ai__pub        # AI research aggregator
+    max_tweets: 3
+  - username: rohanparekh__  # Rohan Parekh
+    max_tweets: 2

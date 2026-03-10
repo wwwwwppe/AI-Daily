@@ -1,0 +1,91 @@
+name: 📰 AI Daily Newsletter
+
+on:
+  # Run every weekday at 08:00 UTC+8 (00:00 UTC)
+  schedule:
+    - cron: "0 0 * * 1-5"
+
+  # Allow manual dispatch for testing
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run mode (print HTML, do not send email)"
+        type: boolean
+        default: false
+      output_file:
+        description: "Save rendered HTML as a workflow artifact (filename, e.g. report.html)"
+        type: string
+        default: ""
+
+jobs:
+  send-newsletter:
+    name: Fetch & Send AI Daily
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run – dry-run / save to file
+        if: ${{ inputs.dry_run == true || inputs.output_file != '' }}
+        env:
+          EMAIL_BACKEND: ${{ secrets.EMAIL_BACKEND }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USE_SSL: ${{ secrets.SMTP_USE_SSL }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
+          EMAIL_FROM_ADDRESS: ${{ secrets.EMAIL_FROM_ADDRESS }}
+          EMAIL_SUBJECT: ${{ secrets.EMAIL_SUBJECT }}
+          EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+          TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
+          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
+        run: |
+          OUTPUT_ARG=""
+          if [ -n "${{ inputs.output_file }}" ]; then
+            OUTPUT_ARG="--output ${{ inputs.output_file }}"
+          elif [ "${{ inputs.dry_run }}" = "true" ]; then
+            OUTPUT_ARG="--dry-run"
+          fi
+          python main.py $OUTPUT_ARG
+
+      - name: Upload HTML artifact
+        if: ${{ inputs.output_file != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-daily-report
+          path: ${{ inputs.output_file }}
+          retention-days: 7
+
+      - name: Run – send email (scheduled / normal dispatch)
+        if: ${{ inputs.dry_run != true && inputs.output_file == '' }}
+        env:
+          EMAIL_BACKEND: ${{ secrets.EMAIL_BACKEND }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USE_SSL: ${{ secrets.SMTP_USE_SSL }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
+          EMAIL_FROM_ADDRESS: ${{ secrets.EMAIL_FROM_ADDRESS }}
+          EMAIL_SUBJECT: ${{ secrets.EMAIL_SUBJECT }}
+          EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+          TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
+          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
+        run: python main.py
