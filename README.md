@@ -139,6 +139,98 @@ twitter_accounts:
 
 ---
 
+## 推荐订阅源
+
+`config/sources.yaml` 中已内置以下精选推荐，可按需增删。
+
+### 📰 RSS 新闻源
+
+#### 国际主流科技媒体
+
+| 名称 | 说明 |
+|------|------|
+| [MIT Technology Review](https://www.technologyreview.com/feed/) | MIT 技术评论，权威科技与 AI 深度报道 |
+| [TechCrunch AI](https://techcrunch.com/category/artificial-intelligence/feed/) | 创业与 AI 产品资讯 |
+| [Wired](https://www.wired.com/feed/rss) | 科技文化综合报道 |
+| [The Verge AI](https://www.theverge.com/ai-artificial-intelligence/rss/index.xml) | 消费科技与 AI 产品动态 |
+| [VentureBeat AI](https://venturebeat.com/category/ai/feed/) | AI 行业与企业应用资讯 |
+| [Hacker News (AI)](https://hnrss.org/newest?q=AI+OR+LLM+OR+machine+learning&points=50) | 开发者社区热门 AI 讨论 |
+| [InfoQ AI](https://feed.infoq.com/) | 面向开发者的 AI 工程实践 |
+
+#### 顶级 AI 实验室 / 公司博客
+
+| 名称 | 说明 |
+|------|------|
+| [Google AI Blog](https://blog.google/technology/ai/rss/) | Google AI 研究与产品公告 |
+| [OpenAI Blog](https://openai.com/blog/rss.xml) | ChatGPT、GPT-4 等模型官方动态 |
+| [Anthropic Blog](https://www.anthropic.com/news/rss.xml) | Claude 系列模型及安全研究 |
+| [Meta AI Blog](https://ai.meta.com/blog/rss/) | LLaMA、PyTorch 等开源进展 |
+| [Microsoft Research](https://www.microsoft.com/en-us/research/feed/) | 微软研究院学术成果 |
+| [NVIDIA AI Blog](https://blogs.nvidia.com/blog/category/artificial-intelligence/feed/) | GPU、推理加速与 AI 基础设施 |
+| [AWS Machine Learning Blog](https://aws.amazon.com/blogs/machine-learning/feed/) | AWS 云端 AI 服务与实践 |
+| [Hugging Face Blog](https://huggingface.co/blog/feed.xml) | 开源模型、数据集与工具生态 |
+| [DeepMind Blog](https://www.deepmind.com/blog/rss.xml) | 强化学习、AlphaFold 等前沿研究 |
+
+#### AI 研究 / 论文
+
+| 名称 | 说明 |
+|------|------|
+| [arXiv CS.AI](https://arxiv.org/rss/cs.AI) | 最新 AI 学术预印本论文 |
+| [Papers With Code](https://paperswithcode.com/news/rss) | 附代码的 SOTA 论文追踪 |
+
+#### 知名 AI 新闻通讯
+
+| 名称 | 说明 |
+|------|------|
+| [The Batch (DeepLearning.AI)](https://read.deeplearning.ai/the-batch/rss/) | Andrew Ng 主编，每周 AI 精选 |
+| [Import AI (Jack Clark)](https://jack-clark.net/feed/) | Anthropic 联创撰写，研究向周报 |
+
+#### 中文 AI 媒体
+
+| 名称 | 说明 |
+|------|------|
+| [机器之心](https://www.jiqizhixin.com/rss) | 国内领先 AI 专业媒体，覆盖研究与产业 |
+| [量子位](https://www.qbitai.com/feed) | AI 与科技创业报道，风格活泼 |
+| [36氪（AI频道）](https://36kr.com/feed) | 国内科技创业与 AI 产品资讯 |
+
+> **微信公众号推荐**（无 RSS，需手动关注）：机器之心、量子位、新智元、AI科技评论、AINLP、深度学习自然语言处理
+
+---
+
+### 💬 Twitter / X 推荐关注
+
+#### AI 公司创始人 / CEO
+
+| 账号 | 说明 |
+|------|------|
+| [@sama](https://x.com/sama) | Sam Altman，OpenAI CEO |
+| [@GregBrockman](https://x.com/GregBrockman) | Greg Brockman，OpenAI 联合创始人 |
+| [@demishassabis](https://x.com/demishassabis) | Demis Hassabis，Google DeepMind CEO |
+| [@emostaque](https://x.com/emostaque) | Emad Mostaque，Stability AI 创始人 |
+
+#### 顶尖 AI 研究员
+
+| 账号 | 说明 |
+|------|------|
+| [@ylecun](https://x.com/ylecun) | Yann LeCun，Meta AI 首席科学家，图灵奖得主 |
+| [@karpathy](https://x.com/karpathy) | Andrej Karpathy，前 OpenAI / Tesla，深度学习教育者 |
+| [@AndrewYNg](https://x.com/AndrewYNg) | Andrew Ng，DeepLearning.AI 创始人，AI 布道者 |
+| [@fchollet](https://x.com/fchollet) | François Chollet，Keras 作者，Google 研究员 |
+| [@goodfellow_ian](https://x.com/goodfellow_ian) | Ian Goodfellow，GAN 发明者 |
+| [@jeffdean](https://x.com/jeffdean) | Jeff Dean，Google 首席科学家 |
+| [@DrJimFan](https://x.com/DrJimFan) | Jim Fan，NVIDIA AI 研究员 |
+| [@hardmaru](https://x.com/hardmaru) | David Ha，前 Google Brain |
+
+#### AI 资讯聚合 / 评论
+
+| 账号 | 说明 |
+|------|------|
+| [@ai__pub](https://x.com/ai__pub) | AI 研究论文聚合推送 |
+| [@GaryMarcus](https://x.com/GaryMarcus) | Gary Marcus，AI 批评与理性分析 |
+| [@rohanparekh__](https://x.com/rohanparekh__) | Rohan Parekh，AI 产品与研究观察 |
+
+---
+
 ## GitHub Actions 自动调度
 
 在仓库的 **Settings → Secrets and variables → Actions** 中添加以下 Secret，工作流将在每个工作日 UTC 00:00（北京时间 08:00）自动运行：
