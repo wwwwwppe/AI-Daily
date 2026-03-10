@@ -1,0 +1,7 @@
+# One recipient email address per line.
+# Lines starting with # are ignored.
+# This file is optional: you can also set EMAIL_RECIPIENTS in your .env file.
+#
+# Example:
+# alice@example.com
+# bob@example.com
