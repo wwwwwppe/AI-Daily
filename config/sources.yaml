@@ -3,6 +3,7 @@
 # Each entry: name, url, and optional max_items (default 5)
 # ─────────────────────────────────────────────────────────────────────────────
 rss_sources:
+  # ── 国际主流科技媒体 ───────────────────────────────────────────────────────
   - name: MIT Technology Review
     url: https://www.technologyreview.com/feed/
     max_items: 5
@@ -23,12 +24,41 @@ rss_sources:
     url: https://venturebeat.com/category/ai/feed/
     max_items: 5
 
+  - name: Hacker News (top AI stories)
+    url: https://hnrss.org/newest?q=AI+OR+LLM+OR+machine+learning&points=50
+    max_items: 5
+
+  - name: InfoQ AI
+    url: https://feed.infoq.com/
+    max_items: 3
+
+  # ── 顶级 AI 实验室 / 公司博客 ─────────────────────────────────────────────
   - name: Google AI Blog
     url: https://blog.google/technology/ai/rss/
     max_items: 3
 
   - name: OpenAI Blog
     url: https://openai.com/blog/rss.xml
+    max_items: 3
+
+  - name: Anthropic Blog
+    url: https://www.anthropic.com/news/rss.xml
+    max_items: 3
+
+  - name: Meta AI Blog
+    url: https://ai.meta.com/blog/rss/
+    max_items: 3
+
+  - name: Microsoft Research Blog
+    url: https://www.microsoft.com/en-us/research/feed/
+    max_items: 3
+
+  - name: NVIDIA AI Blog
+    url: https://blogs.nvidia.com/blog/category/artificial-intelligence/feed/
+    max_items: 3
+
+  - name: AWS Machine Learning Blog
+    url: https://aws.amazon.com/blogs/machine-learning/feed/
     max_items: 3
 
   - name: Hugging Face Blog
@@ -39,12 +69,35 @@ rss_sources:
     url: https://www.deepmind.com/blog/rss.xml
     max_items: 3
 
-  - name: Hacker News (top AI stories)
-    url: https://hnrss.org/newest?q=AI+OR+LLM+OR+machine+learning&points=50
+  # ── AI 研究 / 论文 ────────────────────────────────────────────────────────
+  - name: arXiv CS.AI (latest papers)
+    url: https://arxiv.org/rss/cs.AI
     max_items: 5
 
-  - name: InfoQ AI
-    url: https://feed.infoq.com/
+  - name: Papers With Code
+    url: https://paperswithcode.com/news/rss
+    max_items: 3
+
+  # ── 知名 AI 新闻通讯 ──────────────────────────────────────────────────────
+  - name: The Batch (DeepLearning.AI)
+    url: https://read.deeplearning.ai/the-batch/rss/
+    max_items: 3
+
+  - name: Import AI (Jack Clark)
+    url: https://jack-clark.net/feed/
+    max_items: 3
+
+  # ── 中文 AI 媒体 ──────────────────────────────────────────────────────────
+  - name: 机器之心
+    url: https://www.jiqizhixin.com/rss
+    max_items: 5
+
+  - name: 量子位
+    url: https://www.qbitai.com/feed
+    max_items: 5
+
+  - name: 36氪（AI频道）
+    url: https://36kr.com/feed
     max_items: 3
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -52,19 +105,38 @@ rss_sources:
 # Requires TWITTER_BEARER_TOKEN in .env
 # ─────────────────────────────────────────────────────────────────────────────
 twitter_accounts:
-  - username: sama          # Sam Altman (OpenAI)
+  # ── AI 公司创始人 / CEO ───────────────────────────────────────────────────
+  - username: sama          # Sam Altman (OpenAI CEO)
     max_tweets: 3
-  - username: ylecun         # Yann LeCun (Meta AI)
+  - username: GregBrockman  # Greg Brockman (OpenAI 联合创始人)
+    max_tweets: 2
+  - username: demishassabis  # Demis Hassabis (Google DeepMind CEO)
+    max_tweets: 2
+
+  # ── 顶尖 AI 研究员 ────────────────────────────────────────────────────────
+  - username: ylecun         # Yann LeCun (Meta AI 首席科学家)
     max_tweets: 3
-  - username: karpathy       # Andrej Karpathy
+  - username: karpathy       # Andrej Karpathy (前 OpenAI / Tesla)
     max_tweets: 3
-  - username: emostaque      # Emad Mostaque
+  - username: AndrewYNg      # Andrew Ng (DeepLearning.AI 创始人)
+    max_tweets: 3
+  - username: fchollet       # François Chollet (Keras 作者)
+    max_tweets: 2
+  - username: goodfellow_ian # Ian Goodfellow (GAN 发明者)
+    max_tweets: 2
+  - username: jeffdean       # Jeff Dean (Google 首席科学家)
     max_tweets: 2
   - username: DrJimFan       # Jim Fan (NVIDIA)
     max_tweets: 2
-  - username: hardmaru       # David Ha
+  - username: hardmaru       # David Ha (前 Google Brain)
     max_tweets: 2
-  - username: ai__pub        # AI research aggregator
+  - username: emostaque      # Emad Mostaque (Stability AI)
+    max_tweets: 2
+
+  # ── AI 资讯聚合 / 评论 ───────────────────────────────────────────────────
+  - username: ai__pub        # AI 研究聚合
     max_tweets: 3
+  - username: GaryMarcus     # Gary Marcus (AI 批评与分析)
+    max_tweets: 2
   - username: rohanparekh__  # Rohan Parekh
     max_tweets: 2
