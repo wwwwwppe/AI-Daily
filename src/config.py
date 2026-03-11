@@ -20,8 +20,8 @@ load_dotenv(_ROOT / ".env", override=False)
 EMAIL_BACKEND: str = os.getenv("EMAIL_BACKEND", "smtp").lower()
 
 SMTP_HOST: str = os.getenv("SMTP_HOST", "")
-SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
-SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "true").lower() == "true"
+SMTP_PORT: int = int(os.getenv("SMTP_PORT") or "465")
+SMTP_USE_SSL: bool = (os.getenv("SMTP_USE_SSL") or "true").lower() == "true"
 SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
 SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
 
@@ -88,4 +88,4 @@ TWITTER_BEARER_TOKEN: str = os.getenv("TWITTER_BEARER_TOKEN", "")
 HTTP_PROXY: str = os.getenv("HTTP_PROXY", os.getenv("http_proxy", ""))
 HTTPS_PROXY: str = os.getenv("HTTPS_PROXY", os.getenv("https_proxy", HTTP_PROXY))
 
-REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "15"))
+REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT") or "15")
