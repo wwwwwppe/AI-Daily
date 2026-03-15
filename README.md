@@ -62,6 +62,8 @@ cp .env.example .env
 # 然后编辑 .env，填写邮件服务器信息和收件人列表
 ```
 
+> ⚠️ `.env` 仅用于本地运行，已被 `.gitignore` 忽略，请不要提交到仓库。
+
 #### 必填项
 
 | 变量 | 说明 |
@@ -253,7 +255,15 @@ twitter_accounts:
 | `EMAIL_RECIPIENTS` | `EMAIL_RECIPIENTS` |
 | `TWITTER_BEARER_TOKEN` | `TWITTER_BEARER_TOKEN` |
 
+> ✅ Public 仓库也可以安全使用 Secrets：无需提交 `.env`，并且 Secret 值不会公开显示在仓库代码中。  
+> 建议仅在 GitHub Actions Secrets 中维护生产配置。
+
 也可在 Actions 页面手动触发工作流（支持预览模式和输出 HTML 文件）。
+
+### 关于 `.exe` 产物
+
+项目支持 PyInstaller 打包，运行时会优先读取 `.exe` 同目录下的 `.env`。  
+`.exe` 属于构建产物，不建议提交到仓库；提交二进制文件不会改变 Agent 的运行逻辑，但会增加仓库体积并影响协作体验。
 
 ---
 
