@@ -4,14 +4,37 @@ src/config.py  –  Load and expose all configuration.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
 
-# Load .env from the project root (silently skip if absent – CI uses real secrets)
-_ROOT = Path(__file__).parent.parent
-load_dotenv(_ROOT / ".env", override=False)
+
+def _get_base_dir() -> Path:
+    """Get base directory: supports both dev and PyInstaller one-file mode."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        # PyInstaller one-file mode: _MEIPASS is the temp dir with bundled files
+        # But we also want to look for .env in the exe's directory
+        return Path(sys.executable).parent
+    else:
+        # Dev mode: project root
+        return Path(__file__).parent.parent
+
+
+def _get_data_dir() -> Path:
+    """Get directory for bundled data files (config/, templates/)."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    else:
+        return Path(__file__).parent.parent
+
+
+_BASE_DIR = _get_base_dir()
+_DATA_DIR = _get_data_dir()
+
+# Load .env from exe directory (or project root in dev)
+load_dotenv(_BASE_DIR / ".env", override=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -49,7 +72,7 @@ def _load_recipients() -> list[str]:
             recipients.add(addr)
 
     # 2. From config/recipients.txt
-    txt_file = _ROOT / "config" / "recipients.txt"
+    txt_file = _DATA_DIR / "config" / "recipients.txt"
     if txt_file.exists():
         for line in txt_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -67,7 +90,7 @@ RECIPIENTS: list[str] = _load_recipients()
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _load_sources() -> dict:
-    sources_file = _ROOT / "config" / "sources.yaml"
+    sources_file = _DATA_DIR / "config" / "sources.yaml"
     with sources_file.open(encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 

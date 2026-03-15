@@ -3,6 +3,7 @@ src/composer.py  –  Render the HTML email from fetched content.
 """
 from __future__ import annotations
 
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -10,7 +11,15 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from src.config import EMAIL_SUBJECT_TEMPLATE
 
-_TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+
+def _get_templates_dir() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "templates"
+    else:
+        return Path(__file__).parent.parent / "templates"
+
+
+_TEMPLATES_DIR = _get_templates_dir()
 _env = Environment(
     loader=FileSystemLoader(str(_TEMPLATES_DIR)),
     autoescape=select_autoescape(["html"]),
