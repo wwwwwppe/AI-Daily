@@ -89,3 +89,16 @@ HTTP_PROXY: str = os.getenv("HTTP_PROXY", os.getenv("http_proxy", ""))
 HTTPS_PROXY: str = os.getenv("HTTPS_PROXY", os.getenv("https_proxy", HTTP_PROXY))
 
 REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT") or "15")
+
+# Report window: include content published within [yesterday HH:00, today HH:00)
+REPORT_WINDOW_HOUR: int = int(os.getenv("REPORT_WINDOW_HOUR") or "8")
+REPORT_WINDOW_TZ_OFFSET: int = int(os.getenv("REPORT_WINDOW_TZ_OFFSET") or "8")
+
+# Translation
+ENABLE_ENGLISH_TRANSLATION: bool = (
+    (os.getenv("ENABLE_ENGLISH_TRANSLATION") or "true").lower() == "true"
+)
+TRANSLATE_API_URL: str = os.getenv(
+    "TRANSLATE_API_URL",
+    "https://translate.googleapis.com/translate_a/single",
+)

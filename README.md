@@ -69,6 +69,10 @@ cp .env.example .env
 | `EMAIL_BACKEND` | `smtp` 或 `sendgrid` |
 | `EMAIL_FROM_ADDRESS` | 发件人邮箱地址 |
 | `EMAIL_RECIPIENTS` | 收件人邮箱（逗号分隔），或在 `config/recipients.txt` 中配置 |
+| `REPORT_WINDOW_HOUR` | 日报抓取时间窗口的截止小时（默认 `8`，窗口为“昨天该小时到今天该小时”） |
+| `REPORT_WINDOW_TZ_OFFSET` | 抓取窗口使用的时区偏移（默认 `8`，即 UTC+8） |
+| `ENABLE_ENGLISH_TRANSLATION` | 是否为纯英文内容追加中文翻译行（默认 `true`） |
+| `TRANSLATE_API_URL` | 翻译接口地址（默认 Google Translate 公共接口） |
 
 #### SMTP 配置（选 `EMAIL_BACKEND=smtp` 时）
 
@@ -270,4 +274,3 @@ python -m pytest tests/ -v
 - **📰 今日科技 & AI 资讯**：每条包含来源标签、标题（可点击跳转原文）、摘要、"阅读原文"按钮
 - **💬 AI 大V 观点**：每条包含作者、@用户名、推文正文、"查看原推"跳转链接
 - **底部 Footer**：免责声明 + 退订说明
-

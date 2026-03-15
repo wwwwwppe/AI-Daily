@@ -49,16 +49,23 @@ def _truncate(text: str, max_len: int = 300) -> str:
     return text[:max_len].rsplit(" ", 1)[0] + "…"
 
 
-def _parse_date(entry) -> str:
-    """Return an ISO-8601 date string from a feedparser entry, or ''."""
+def _parse_datetime(entry) -> datetime | None:
+    """Return a UTC datetime from a feedparser entry, or ``None``."""
     for attr in ("published_parsed", "updated_parsed", "created_parsed"):
         value = getattr(entry, attr, None)
         if value:
             try:
-                dt = datetime(*value[:6], tzinfo=timezone.utc)
-                return dt.strftime("%Y-%m-%d")
+                return datetime(*value[:6], tzinfo=timezone.utc)
             except Exception:
                 pass
+    return None
+
+
+def _parse_date(entry) -> str:
+    """Return an ISO-8601 date string from a feedparser entry, or ''."""
+    dt = _parse_datetime(entry)
+    if dt:
+        return dt.strftime("%Y-%m-%d")
     return ""
 
 
@@ -90,7 +97,13 @@ def _fetch_feed(source: dict) -> list[dict]:
                 or ""
             )
             summary = _truncate(_strip_html(raw_summary))
-            published = _parse_date(entry)
+            published_dt = _parse_datetime(entry)
+            published = published_dt.strftime("%Y-%m-%d") if published_dt else ""
+            published_at = (
+                published_dt.isoformat().replace("+00:00", "Z")
+                if published_dt
+                else ""
+            )
 
             articles.append(
                 {
@@ -98,6 +111,7 @@ def _fetch_feed(source: dict) -> list[dict]:
                     "url": link.strip(),
                     "source": name,
                     "published": published,
+                    "published_at": published_at,
                     "summary": summary,
                 }
             )
