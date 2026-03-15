@@ -11,8 +11,9 @@ import requests
 from src.config import REQUEST_TIMEOUT, TRANSLATE_API_URL
 
 logger = logging.getLogger(__name__)
-_MAX_TRANSLATION_TIMEOUT = 8
+_MAX_TRANSLATION_TIMEOUT_SECONDS = 8
 
+# English letters/numbers/whitespace plus common ASCII punctuation.
 _ENGLISH_ONLY_RE = re.compile(r"^[A-Za-z0-9\s\.,;:!?\-_'\"()\[\]/&%+#@*$^`~|<>…]+$")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
@@ -49,7 +50,7 @@ def translate_to_chinese(text: str) -> str:
                 "dt": "t",
                 "q": text,
             },
-            timeout=min(REQUEST_TIMEOUT, _MAX_TRANSLATION_TIMEOUT),
+            timeout=min(REQUEST_TIMEOUT, _MAX_TRANSLATION_TIMEOUT_SECONDS),
         )
         resp.raise_for_status()
         payload = resp.json()

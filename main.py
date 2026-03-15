@@ -84,7 +84,11 @@ def _filter_items_for_window(
     return filtered
 
 
-def _append_translation_for_english_content(items: list[dict], text_key: str) -> list[dict]:
+def _append_translation_for_english_content(
+    items: list[dict],
+    text_key: str,
+    fallback_text_key: str | None = None,
+) -> list[dict]:
     """Add a Chinese translation line for English-only content."""
     from src.translator import is_english_only, translate_to_chinese
 
@@ -92,6 +96,8 @@ def _append_translation_for_english_content(items: list[dict], text_key: str) ->
     for item in items:
         new_item = dict(item)
         text = (new_item.get(text_key) or "").strip()
+        if not text and fallback_text_key:
+            text = (new_item.get(fallback_text_key) or "").strip()
         if is_english_only(text):
             translation = translate_to_chinese(text) or "（翻译服务暂时不可用）"
             new_item["translation"] = translation
@@ -148,7 +154,7 @@ def main() -> None:
     tweets = tweets[: max(0, _MAX_DAILY_ITEMS - len(articles))]
     if ENABLE_ENGLISH_TRANSLATION:
         articles = _append_translation_for_english_content(
-            articles, "summary"
+            articles, "summary", fallback_text_key="title"
         )
         tweets = _append_translation_for_english_content(tweets, "text")
     logger.info(

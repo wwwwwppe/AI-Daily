@@ -53,11 +53,23 @@ def test_report_window_defaults_to_yesterday_8_to_today_8_for_utc8():
 
 
 def test_append_translation_for_english_content(monkeypatch):
-    monkeypatch.setattr("src.translator.is_english_only", lambda text: text == "Hello world")
-    monkeypatch.setattr("src.translator.translate_to_chinese", lambda text: "你好，世界")
+    monkeypatch.setattr("src.translator.is_english_only", lambda text: text.startswith("Hello world"))
+    monkeypatch.setattr(
+        "src.translator.translate_to_chinese",
+        lambda text: "" if text == "Hello world (fail)" else "你好，世界",
+    )
 
-    items = [{"summary": "Hello world"}, {"summary": "你好世界"}]
-    enriched = _append_translation_for_english_content(items, "summary")
+    items = [
+        {"summary": "Hello world"},
+        {"summary": "你好世界"},
+        {"summary": "", "title": "Hello world"},
+        {"summary": "Hello world (fail)"},
+    ]
+    enriched = _append_translation_for_english_content(
+        items, "summary", fallback_text_key="title"
+    )
 
     assert enriched[0]["translation"] == "你好，世界"
     assert "translation" not in enriched[1]
+    assert enriched[2]["translation"] == "你好，世界"
+    assert enriched[3]["translation"] == "（翻译服务暂时不可用）"
