@@ -70,6 +70,16 @@ def test_html_contains_tweet_text():
     assert "https://twitter.com/sama/status/123456789" in html
 
 
+def test_html_renders_translation_line_when_present():
+    articles = [{**SAMPLE_ARTICLES[0], "translation": "OpenAI 发布了 GPT-5。"}]
+    tweets = [{**SAMPLE_TWEETS[0], "translation": "很高兴分享我们最新的对齐研究。"}]
+
+    _, html = render_email(articles, tweets, date(2025, 3, 10))
+
+    assert "翻译：OpenAI 发布了 GPT-5。" in html
+    assert "翻译：很高兴分享我们最新的对齐研究。" in html
+
+
 def test_html_contains_sources():
     _, html = render_email(SAMPLE_ARTICLES, SAMPLE_TWEETS, date(2025, 3, 10))
     assert "OpenAI Blog" in html

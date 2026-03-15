@@ -102,14 +102,19 @@ def _fetch_user_tweets(
 
             # Convert ISO timestamp to YYYY-MM-DD
             published = ""
+            published_at = ""
             if created_at:
                 try:
                     dt = datetime.fromisoformat(
                         created_at.replace("Z", "+00:00")
                     )
                     published = dt.strftime("%Y-%m-%d")
+                    published_at = dt.astimezone(timezone.utc).isoformat().replace(
+                        "+00:00", "Z"
+                    )
                 except Exception:
                     published = created_at[:10]
+                    published_at = created_at
 
             tweet_url = f"https://twitter.com/{username}/status/{tweet_id}"
             tweets.append(
@@ -119,6 +124,7 @@ def _fetch_user_tweets(
                     "text": text,
                     "url": tweet_url,
                     "published": published,
+                    "published_at": published_at,
                 }
             )
     except Exception as exc:

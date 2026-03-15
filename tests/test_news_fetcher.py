@@ -99,6 +99,7 @@ def test_fetch_feed_returns_articles(mock_parse):
     assert articles[0]["url"] == "https://example.com/1"
     assert articles[0]["source"] == "Test Feed"
     assert articles[0]["published"] == "2025-03-10"
+    assert articles[0]["published_at"] == "2025-03-10T00:00:00Z"
     assert "Great news about AI" in articles[0]["summary"]
 
 
