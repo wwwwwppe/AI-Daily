@@ -93,7 +93,7 @@ def _append_translation_for_english_content(items: list[dict], text_key: str) ->
         new_item = dict(item)
         text = (new_item.get(text_key) or "").strip()
         if is_english_only(text):
-            translation = translate_to_chinese(text) or "（自动翻译失败，请查看原文）"
+            translation = translate_to_chinese(text) or "（翻译服务暂时不可用）"
             new_item["translation"] = translation
         enriched.append(new_item)
     return enriched
