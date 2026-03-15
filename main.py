@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import date
 from pathlib import Path
 
 # Configure logging before any local imports
@@ -22,6 +23,13 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
+_MAX_DAILY_ITEMS = 10
+
+
+def _filter_items_for_date(items: list[dict], target_date: date) -> list[dict]:
+    """Keep only items published on ``target_date``."""
+    target_iso = target_date.strftime("%Y-%m-%d")
+    return [item for item in items if item.get("published") == target_iso]
 
 
 def _parse_args() -> argparse.Namespace:
@@ -43,6 +51,7 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
+    today = date.today()
 
     # ── 1. Fetch content ────────────────────────────────────────────────
     logger.info("── Step 1/3: Fetching news from RSS feeds …")
@@ -56,6 +65,19 @@ def main() -> None:
 
     tweets = fetch_all_tweets()
     logger.info("Total tweets fetched: %d", len(tweets))
+
+    articles = _filter_items_for_date(articles, today)
+    tweets = _filter_items_for_date(tweets, today)
+    articles = articles[:_MAX_DAILY_ITEMS]
+    tweets = tweets[: max(0, _MAX_DAILY_ITEMS - len(articles))]
+    logger.info(
+        "Keeping today's content only (%s): %d article(s), %d tweet(s), total=%d (max=%d)",
+        today.strftime("%Y-%m-%d"),
+        len(articles),
+        len(tweets),
+        len(articles) + len(tweets),
+        _MAX_DAILY_ITEMS,
+    )
 
     if not articles and not tweets:
         logger.error("No content fetched – aborting.")
