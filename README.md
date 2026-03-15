@@ -255,7 +255,7 @@ twitter_accounts:
 | `EMAIL_RECIPIENTS` | `EMAIL_RECIPIENTS` |
 | `TWITTER_BEARER_TOKEN` | `TWITTER_BEARER_TOKEN` |
 
-> ✅ Public 仓库也可以安全使用 Secrets：无需提交 `.env`，并且 Secret 值不会公开显示在仓库代码中。  
+> ✅ Public 仓库也可以安全使用 Secrets：无需提交 `.env`，并且 Secret 值不会公开显示在仓库代码中。
 > 建议仅在 GitHub Actions Secrets 中维护生产配置。
 
 也可在 Actions 页面手动触发工作流（支持预览模式和输出 HTML 文件）。
