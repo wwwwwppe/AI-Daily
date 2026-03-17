@@ -16,9 +16,7 @@ build/
 *.exe
 *.egg-info/
 
-# Environment files
-.env
-!.env
+# Environment files (.env is tracked as template; .env.local for local secrets)
 .env.local
 
 # IDE / editor
