@@ -62,7 +62,13 @@ cp .env.example .env
 # 然后编辑 .env，填写邮件服务器信息和收件人列表
 ```
 
-> ⚠️ `.env` 仅用于本地运行，已被 `.gitignore` 忽略，请不要提交到仓库。
+> ⚠️ 仓库中的 `.env` 为**不含敏感信息的模板**；请勿将真实密钥写入并提交到仓库。
+>
+> 🔐 对于敏感信息（如 API Key、数据库密码等），请使用 GitHub Secrets：
+> 1. 进入仓库 **Settings**
+> 2. 点击 **Secrets and variables → Actions**
+> 3. 添加密钥（如 `API_KEY`、`DATABASE_URL` 等）
+> 4. 在工作流中通过 `${{ secrets.SECRET_NAME }}` 引用
 
 #### 必填项
 
