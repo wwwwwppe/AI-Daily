@@ -69,6 +69,8 @@ cp .env.example .env
 > 2. 点击 **Secrets and variables → Actions**
 > 3. 添加密钥（如 `API_KEY`、`DATABASE_URL` 等）
 > 4. 在工作流中通过 `${{ secrets.SECRET_NAME }}` 引用
+>
+> 在本项目的 GitHub Actions 中，`SMTP_HOST`、`SMTP_PORT`、`SMTP_USERNAME`、`EMAIL_FROM_ADDRESS` 也需要在 Secrets 中显式配置，否则无法正常发送邮件。
 
 #### 必填项
 
