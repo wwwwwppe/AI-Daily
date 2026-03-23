@@ -58,11 +58,13 @@ def _extract_methodology_concept(markdown: str) -> str | None:
     idx = markdown.find(marker)
     if idx == -1:
         return None
-    after = markdown[idx:].splitlines()
-    for line in after:
+    after_lines = markdown[idx:].splitlines()
+    for line in after_lines[1:21]:
         text = line.strip()
         if text.startswith("**") and text.endswith("**") and len(text) > 4:
             return text.strip("*").strip()
+        if text.startswith('<h3>- 06 ') or text.startswith('<h3>- 07 '):
+            break
     return None
 
 
@@ -70,12 +72,15 @@ def _append_published_concept(base_dir: Path, concept: str | None) -> None:
     if not concept:
         return
     concepts_file = _published_concepts_file(base_dir)
+    concept_line = f"- {concept}"
     if concepts_file.exists():
-        existing = concepts_file.read_text(encoding="utf-8")
-        if concept in existing:
+        existing_lines = {
+            line.strip() for line in concepts_file.read_text(encoding="utf-8").splitlines()
+        }
+        if concept_line in existing_lines:
             return
     with concepts_file.open("a", encoding="utf-8") as fh:
-        fh.write(f"- {concept}\n")
+        fh.write(f"{concept_line}\n")
 
 
 def _build_messages(published_concepts: str) -> list[dict]:
@@ -127,4 +132,3 @@ def generate_my_news_markdown(base_dir: Path) -> tuple[Path, str]:
     concept = _extract_methodology_concept(content)
     _append_published_concept(base_dir, concept)
     return output_file, content
-
