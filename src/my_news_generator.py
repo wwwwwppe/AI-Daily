@@ -3,10 +3,14 @@ src/my_news_generator.py  –  Generate my-news markdown via DeepSeek API.
 """
 from __future__ import annotations
 
+import logging
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
 import requests
+from bs4 import BeautifulSoup
 
 from src.config import (
     DEEPSEEK_API_KEY,
@@ -18,6 +22,160 @@ from src.skills import MY_NEWS_PROMPT
 
 
 _BJT = timezone(timedelta(hours=8))
+logger = logging.getLogger(__name__)
+_SECTION_HEADER_RE = re.compile(r"<h3>-\s*(\d{2})\s+.+\s*-</h3>")
+
+
+def _get_image_extension(image_url: str, content_type: str) -> str:
+    path_ext = Path(urlparse(image_url).path).suffix.lower().lstrip(".")
+    if path_ext in {"jpg", "jpeg", "png", "webp", "gif"}:
+        return path_ext
+    ctype = (content_type or "").lower()
+    if "png" in ctype:
+        return "png"
+    if "webp" in ctype:
+        return "webp"
+    if "gif" in ctype:
+        return "gif"
+    if "jpeg" in ctype or "jpg" in ctype:
+        return "jpg"
+    return "jpg"
+
+
+def _extract_url_from_related_link_line(text: str) -> str | None:
+    markdown_url = re.search(r"\((https?://[^)\s]+)\)", text)
+    if markdown_url:
+        return markdown_url.group(1)
+    plain_url = re.search(r"(https?://[^\s]+)", text)
+    if plain_url:
+        return plain_url.group(1).rstrip(").,")
+    return None
+
+
+def _is_item_title_line(stripped: str) -> bool:
+    return (
+        stripped.startswith("**")
+        and stripped.endswith("**")
+        and not stripped.startswith("**相关链接：**")
+    )
+
+
+def _extract_representative_image_url(article_url: str) -> str | None:
+    try:
+        resp = requests.get(article_url, timeout=DEEPSEEK_TIMEOUT)
+        resp.raise_for_status()
+    except Exception:
+        return None
+
+    soup = BeautifulSoup(resp.text, "lxml")
+    selectors = [
+        ('meta[property="og:image"]', "content"),
+        ('meta[name="twitter:image"]', "content"),
+        ('link[rel="image_src"]', "href"),
+    ]
+    for selector, attr in selectors:
+        tag = soup.select_one(selector)
+        value = (tag.get(attr) if tag else "") or ""
+        if value and not value.startswith("data:"):
+            return urljoin(article_url, value)
+
+    for img in soup.select("article img[src], main img[src], img[src]"):
+        src = (img.get("src") or "").strip()
+        if src and not src.startswith("data:"):
+            return urljoin(article_url, src)
+    return None
+
+
+def _download_image(image_url: str, target_file: Path) -> str | None:
+    try:
+        resp = requests.get(image_url, timeout=DEEPSEEK_TIMEOUT)
+        resp.raise_for_status()
+    except Exception:
+        return None
+    if not resp.content:
+        return None
+    target_file.write_bytes(resp.content)
+    return resp.headers.get("Content-Type", "")
+
+
+def _process_images_for_markdown(
+    markdown: str,
+    images_dir: Path,
+    bjt_now: datetime,
+) -> str:
+    lines = markdown.splitlines()
+    section_counts: dict[str, int] = {}
+    current_section: str | None = None
+    item: dict | None = None
+    updates: list[tuple[int, str, int | None]] = []
+
+    for i, line in enumerate(lines):
+        section_match = _SECTION_HEADER_RE.search(line)
+        if section_match:
+            current_section = section_match.group(1)
+            continue
+
+        stripped = line.strip()
+        if _is_item_title_line(stripped):
+            item = {
+                "section": current_section,
+                "title_idx": i,
+                "image_idx": None,
+                "title": stripped.strip("*").strip(),
+            }
+            continue
+
+        if not item:
+            continue
+
+        if stripped.startswith("![") and "](" in stripped and item["image_idx"] is None:
+            item["image_idx"] = i
+            continue
+
+        if stripped.startswith("**相关链接：**"):
+            section = item.get("section")
+            url = _extract_url_from_related_link_line(stripped)
+            if section and url:
+                seq = section_counts.get(section, 0) + 1
+                section_counts[section] = seq
+
+                image_url = _extract_representative_image_url(url)
+                if image_url:
+                    ext = _get_image_extension(image_url, "")
+                    image_file_name = f"{bjt_now:%Y%m%d}_{section}_{seq}.{ext}"
+                    image_file = images_dir / image_file_name
+                    content_type = _download_image(image_url, image_file)
+                    if content_type is not None:
+                        real_ext = _get_image_extension(image_url, content_type)
+                        if real_ext != ext:
+                            real_file_name = f"{bjt_now:%Y%m%d}_{section}_{seq}.{real_ext}"
+                            real_file = images_dir / real_file_name
+                            image_file.rename(real_file)
+                            image_file_name = real_file_name
+                        image_line = f"![{item['title']}](images/{image_file_name})"
+                        updates.append((item["title_idx"], image_line, item["image_idx"]))
+                        logger.info(
+                            "Downloaded image for section %s #%d: %s",
+                            section,
+                            seq,
+                            image_file_name,
+                        )
+                    else:
+                        logger.warning(
+                            "Failed to download representative image for %s", url
+                        )
+                else:
+                    logger.info("No representative image found for %s", url)
+            item = None
+
+    for title_idx, image_line, image_idx in reversed(updates):
+        if image_idx is not None:
+            lines[image_idx] = image_line
+        else:
+            lines.insert(title_idx + 1, "")
+            lines.insert(title_idx + 2, image_line)
+
+    return "\n".join(lines)
 
 
 def _ensure_daily_news_dirs(base_dir: Path) -> tuple[Path, Path]:
@@ -63,7 +221,8 @@ def _extract_methodology_concept(markdown: str) -> str | None:
         text = line.strip()
         if text.startswith("**") and text.endswith("**") and len(text) > 4:
             return text.strip("*").strip()
-        if text.startswith('<h3>- 06 ') or text.startswith('<h3>- 07 '):
+        section_match = _SECTION_HEADER_RE.search(text)
+        if section_match and section_match.group(1) != "05":
             break
     return None
 
@@ -96,7 +255,9 @@ def _build_messages(published_concepts: str) -> list[dict]:
     ]
 
 
-def generate_my_news_markdown(base_dir: Path) -> tuple[Path, str]:
+def generate_my_news_markdown(
+    base_dir: Path, now_utc: datetime | None = None
+) -> tuple[Path, str]:
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("DEEPSEEK_API_KEY is not set.")
 
@@ -127,7 +288,10 @@ def generate_my_news_markdown(base_dir: Path) -> tuple[Path, str]:
     if not content:
         raise RuntimeError("DeepSeek returned empty content.")
 
-    output_file = _daily_news_filepath(base_dir)
+    bjt_now = _current_bjt_for_filename(now_utc)
+    _, images_dir = _ensure_daily_news_dirs(base_dir)
+    content = _process_images_for_markdown(content, images_dir, bjt_now)
+    output_file = _daily_news_filepath(base_dir, now_utc=now_utc)
     output_file.write_text(content, encoding="utf-8")
     concept = _extract_methodology_concept(content)
     _append_published_concept(base_dir, concept)

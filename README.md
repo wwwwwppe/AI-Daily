@@ -138,6 +138,9 @@ python main.py --output preview.html
 python main.py --dry-run
 ```
 
+`--mode my-news` 会尝试为每条资讯自动抓取代表图并下载到 `daily-news/images/`，
+同时将对应的 `![图片描述](images/...)` 引用写回生成的 Markdown 内容中。
+
 ---
 
 ## 自定义新闻源
