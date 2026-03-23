@@ -56,8 +56,13 @@ def _get_report_window(
     now_utc: datetime,
     anchor_hour: int,
     tz_offset_hours: int,
+    mode: str = "anchored",
 ) -> tuple[datetime, datetime]:
     """Return report window bounds in UTC: [start, end)."""
+    normalized_mode = (mode or "anchored").strip().lower()
+    if normalized_mode == "rolling":
+        return now_utc - timedelta(days=1), now_utc
+
     tz = timezone(timedelta(hours=tz_offset_hours))
     local_now = now_utc.astimezone(tz)
     end_local = local_now.replace(
@@ -382,12 +387,16 @@ def main() -> None:
 
     from src.config import (
         ENABLE_ENGLISH_TRANSLATION,
+        REPORT_WINDOW_MODE,
         REPORT_WINDOW_HOUR,
         REPORT_WINDOW_TZ_OFFSET,
     )
 
     window_start_utc, window_end_utc = _get_report_window(
-        now_utc, REPORT_WINDOW_HOUR, REPORT_WINDOW_TZ_OFFSET
+        now_utc,
+        REPORT_WINDOW_HOUR,
+        REPORT_WINDOW_TZ_OFFSET,
+        REPORT_WINDOW_MODE,
     )
     articles = _filter_items_for_window(articles, window_start_utc, window_end_utc)
     tweets = _filter_items_for_window(tweets, window_start_utc, window_end_utc)

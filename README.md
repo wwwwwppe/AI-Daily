@@ -71,6 +71,7 @@ cp .env.example .env
 | `EMAIL_BACKEND` | `smtp` 或 `sendgrid` |
 | `EMAIL_FROM_ADDRESS` | 发件人邮箱地址 |
 | `EMAIL_RECIPIENTS` | 收件人邮箱（逗号分隔），或在 `config/recipients.txt` 中配置 |
+| `REPORT_WINDOW_MODE` | 抓取窗口模式：`anchored`（锚点）或 `rolling`（滚动24小时，推荐） |
 | `REPORT_WINDOW_HOUR` | 日报抓取时间窗口的截止小时（默认 `8`，窗口为“昨天该小时到今天该小时”） |
 | `REPORT_WINDOW_TZ_OFFSET` | 抓取窗口使用的时区偏移（默认 `8`，即 UTC+8） |
 | `ENABLE_ENGLISH_TRANSLATION` | 是否为纯英文内容追加中文翻译行（默认 `true`） |

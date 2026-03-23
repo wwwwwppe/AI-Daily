@@ -6,7 +6,6 @@ from __future__ import annotations
 import logging
 import re
 import sys
-from collections import defaultdict
 from dataclasses import dataclass
 from html import escape
 from datetime import datetime, timedelta, timezone
@@ -22,8 +21,10 @@ from src.config import (
     DEEPSEEK_API_URL,
     DEEPSEEK_MODEL,
     DEEPSEEK_TIMEOUT,
+    MY_NEWS_PRUNE_INVALID_SOURCE_ITEMS,
     MY_NEWS_MAX_TOKENS,
     REPORT_WINDOW_HOUR,
+    REPORT_WINDOW_MODE,
     REPORT_WINDOW_TZ_OFFSET,
 )
 from src.skills import get_my_news_prompt
@@ -44,6 +45,22 @@ _GENERATION_CHATTER_RE = re.compile(
 )
 _INTRO_SECTION_LINE_RE = re.compile(r"^[\-*\s]*?(\d{2})\s+[^：:]+[：:]\s*(.+)$")
 _PARAGRAPH_LABEL_RE = re.compile(r"^[\[【]正文(?:段落)?[\]】]\s*[：:]\s*")
+_WRAPPED_PARAGRAPH_LABEL_RE = re.compile(
+    r"^[\[【]\s*正文(?:段落)?\s*[：:]\s*(.*?)\s*[\]】]\s*$"
+)
+_CORE_PAPER_ALLOWED_DOMAINS = {
+    "arxiv.org",
+    "nature.com",
+    "science.org",
+    "pnas.org",
+    "ieeexplore.ieee.org",
+    "dl.acm.org",
+    "scholar.google.com",
+    "semanticscholar.org",
+    "biorxiv.org",
+    "aclanthology.org",
+}
+_CORE_PAPER_EMPTY_TEXT = "今日暂无符合标准的资讯（未提供可信学术来源URL）。"
 
 
 def _get_templates_dir() -> Path:
@@ -410,6 +427,10 @@ def _parse_item_published_datetime(item: dict) -> datetime | None:
 
 
 def _get_report_window(now_utc: datetime) -> tuple[datetime, datetime]:
+    normalized_mode = (REPORT_WINDOW_MODE or "anchored").strip().lower()
+    if normalized_mode == "rolling":
+        return now_utc - timedelta(days=1), now_utc
+
     tz = timezone(timedelta(hours=REPORT_WINDOW_TZ_OFFSET))
     local_now = now_utc.astimezone(tz)
     end_local = local_now.replace(hour=REPORT_WINDOW_HOUR, minute=0, second=0, microsecond=0)
@@ -504,6 +525,10 @@ def _strip_paragraph_labels(markdown: str) -> str:
     for line in lines:
         stripped = line.lstrip()
         indent = line[: len(line) - len(stripped)]
+        wrapped_match = _WRAPPED_PARAGRAPH_LABEL_RE.match(stripped)
+        if wrapped_match:
+            cleaned.append(indent + wrapped_match.group(1).strip())
+            continue
         cleaned.append(indent + _PARAGRAPH_LABEL_RE.sub("", stripped))
     return "\n".join(cleaned)
 
@@ -530,113 +555,27 @@ def _extract_item_source_url(item_lines: list[str]) -> str | None:
     return None
 
 
-def _dedupe_items_by_source_url(markdown: str) -> str:
-    """Ensure each source URL appears only once and avoid starving later sections."""
-    lines = markdown.splitlines()
-    intro_fallbacks = _extract_intro_section_fallbacks(markdown)
-    parsed_items: list[dict] = []
-    url_groups: dict[str, list[dict]] = defaultdict(list)
-    raw_section_counts: dict[str, int] = defaultdict(int)
+def _is_allowed_core_paper_domain(url: str) -> bool:
+    host = (urlparse((url or "").strip()).hostname or "").lower().rstrip(".")
+    if not host:
+        return False
+    return any(host == d or host.endswith(f".{d}") for d in _CORE_PAPER_ALLOWED_DOMAINS)
 
+
+def _enforce_core_paper_source_domains(markdown: str) -> str:
+    """Keep section 03 items only when source URL host matches academic whitelist."""
+    lines = markdown.splitlines()
+    out: list[str] = []
+    removed = 0
     i = 0
-    item_id = 0
     current_section: str | None = None
+
     while i < len(lines):
         line = lines[i]
         section = _extract_section_code(line)
         if section:
             current_section = section
 
-        title = _extract_item_title(line)
-        if not title:
-            i += 1
-            continue
-
-        block: list[str] = [line]
-        i += 1
-        while i < len(lines):
-            next_line = lines[i]
-            if _extract_section_code(next_line) or _extract_item_title(next_line):
-                break
-            block.append(next_line)
-            i += 1
-
-        raw_section_counts[current_section or "??"] += 1
-        item = {
-            "id": item_id,
-            "section": current_section,
-            "title": title,
-            "block": block,
-        }
-        item_id += 1
-        parsed_items.append(item)
-
-        source_url = _extract_item_source_url(block)
-        if source_url:
-            item["source_url"] = source_url
-            item["normalized_url"] = _normalize_url_for_dedupe(source_url)
-            plain_text = re.sub(r"<[^>]+>", " ", " ".join(block))
-            item["plain_text"] = plain_text
-            url_groups[item["normalized_url"]].append(item)
-
-    def _tokenize(text: str) -> set[str]:
-        return set(re.findall(r"[0-9A-Za-z\u4e00-\u9fff]{2,}", text.lower()))
-
-    def _fit_score(candidate: dict) -> int:
-        section_code = candidate.get("section") or ""
-        summary = intro_fallbacks.get(section_code, "")
-        if not summary:
-            return 0
-        summary_tokens = _tokenize(summary)
-        if not summary_tokens:
-            return 0
-        item_tokens = _tokenize(f"{candidate.get('title', '')} {candidate.get('plain_text', '')}")
-        return len(summary_tokens & item_tokens)
-
-    keep_ids: set[int] = set()
-    kept_section_counts: dict[str, int] = defaultdict(int)
-
-    for item in parsed_items:
-        if "normalized_url" not in item:
-            keep_ids.add(int(item["id"]))
-            kept_section_counts[item.get("section") or "??"] += 1
-
-    for grouped in url_groups.values():
-        if len(grouped) == 1:
-            chosen = grouped[0]
-        else:
-            chosen = max(
-                grouped,
-                key=lambda c: (
-                    _fit_score(c),
-                    -kept_section_counts[c.get("section") or "??"],
-                    -raw_section_counts[c.get("section") or "??"],
-                    -int(c["id"]),
-                ),
-            )
-
-        keep_ids.add(int(chosen["id"]))
-        kept_section_counts[chosen.get("section") or "??"] += 1
-
-        for dropped in grouped:
-            if dropped is chosen:
-                continue
-            logger.warning(
-                "Removed duplicate source URL in section %s (%s): %s; kept in section %s (%s): %s",
-                (dropped.get("section") or "??"),
-                dropped.get("title") or "",
-                dropped.get("source_url") or "",
-                (chosen.get("section") or "??"),
-                chosen.get("title") or "",
-                chosen.get("source_url") or "",
-            )
-
-    out: list[str] = []
-    removed = 0
-    i = 0
-    current_item_id = 0
-    while i < len(lines):
-        line = lines[i]
         title = _extract_item_title(line)
         if not title:
             out.append(line)
@@ -652,11 +591,192 @@ def _dedupe_items_by_source_url(markdown: str) -> str:
             block.append(next_line)
             i += 1
 
-        if current_item_id in keep_ids:
+        if current_section != "03":
             out.extend(block)
+            continue
+
+        source_url = _extract_item_source_url(block)
+        if source_url and _is_allowed_core_paper_domain(source_url):
+            out.extend(block)
+            continue
+
+        removed += 1
+        logger.warning(
+            "Removed non-academic core paper item: %s | source=%s",
+            title,
+            source_url or "(missing)",
+        )
+
+    if removed:
+        logger.warning("Removed %d core paper item(s) by source domain guard.", removed)
+
+    return "\n".join(out)
+
+
+def _ensure_core_paper_fallback_text(markdown: str) -> str:
+    """Ensure section 03 has a fallback sentence after strict source-domain filtering."""
+    lines = markdown.splitlines()
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        section = _extract_section_code(line)
+        if section != "03":
+            out.append(line)
+            i += 1
+            continue
+
+        block: list[str] = [line]
+        i += 1
+        while i < len(lines):
+            next_line = lines[i]
+            if _extract_section_code(next_line):
+                break
+            block.append(next_line)
+            i += 1
+
+        if not _section_has_content(block):
+            if block and block[-1].strip():
+                block.append("")
+            block.append(_CORE_PAPER_EMPTY_TEXT)
+
+        out.extend(block)
+
+    return "\n".join(out)
+
+
+def _dedupe_items_by_source_url(markdown: str) -> str:
+    """Ensure each source URL appears once, preferring better section placement."""
+    lines = markdown.splitlines()
+    intro_fallbacks = _extract_intro_section_fallbacks(markdown)
+    parsed_blocks: list[dict] = []
+    url_groups: dict[str, list[dict]] = {}
+    raw_section_counts: dict[str, int] = {}
+    i = 0
+    item_id = 0
+    current_section: str | None = None
+
+    while i < len(lines):
+        line = lines[i]
+        section = _extract_section_code(line)
+        if section:
+            current_section = section
+
+        title = _extract_item_title(line)
+        if not title:
+            parsed_blocks.append({"type": "line", "line": line})
+            i += 1
+            continue
+
+        block: list[str] = [line]
+        i += 1
+        while i < len(lines):
+            next_line = lines[i]
+            if _extract_section_code(next_line) or _extract_item_title(next_line):
+                break
+            block.append(next_line)
+            i += 1
+
+        source_url = _extract_item_source_url(block)
+        normalized_url = _normalize_url_for_dedupe(source_url) if source_url else None
+        section_code = current_section or "??"
+        raw_section_counts[section_code] = raw_section_counts.get(section_code, 0) + 1
+        item_entry = {
+            "type": "item",
+            "id": item_id,
+            "section": current_section,
+            "title": title,
+            "block": block,
+            "source_url": source_url,
+            "normalized_url": normalized_url,
+            "plain_text": re.sub(r"<[^>]+>", " ", " ".join(block)),
+        }
+        item_id += 1
+        parsed_blocks.append(item_entry)
+        if normalized_url:
+            url_groups.setdefault(normalized_url, []).append(item_entry)
+
+    def _tokenize(text: str) -> set[str]:
+        return set(re.findall(r"[0-9A-Za-z\u4e00-\u9fff]{2,}", text.lower()))
+
+    def _fit_score(candidate: dict) -> int:
+        section_code = candidate.get("section") or ""
+        summary = intro_fallbacks.get(section_code, "")
+        if not summary:
+            return 0
+        summary_tokens = _tokenize(summary)
+        if not summary_tokens:
+            return 0
+        item_tokens = _tokenize(f"{candidate.get('title', '')} {candidate.get('plain_text', '')}")
+        return len(summary_tokens & item_tokens)
+
+    def _section_priority(section_code: str | None) -> int:
+        ordered = {
+            "01": 7,
+            "02": 6,
+            "03": 5,
+            "04": 4,
+            "05": 3,
+            "06": 2,
+            "07": 1,
+        }
+        return ordered.get(section_code or "", 0)
+
+    keep_item_ids: set[int] = set()
+    kept_section_counts: dict[str, int] = {}
+
+    # Items without source URL cannot be grouped; keep them as-is.
+    for entry in parsed_blocks:
+        if entry.get("type") != "item":
+            continue
+        if not entry.get("normalized_url"):
+            keep_item_ids.add(int(entry["id"]))
+            section_code = entry.get("section") or "??"
+            kept_section_counts[section_code] = kept_section_counts.get(section_code, 0) + 1
+
+    for grouped in url_groups.values():
+        if len(grouped) == 1:
+            chosen = grouped[0]
+        else:
+            chosen = max(
+                grouped,
+                key=lambda c: (
+                    _fit_score(c),
+                    -kept_section_counts.get(c.get("section") or "??", 0),
+                    -raw_section_counts.get(c.get("section") or "??", 0),
+                    _section_priority(c.get("section")),
+                    -int(c["id"]),
+                ),
+            )
+
+        keep_item_ids.add(int(chosen["id"]))
+        section_code = chosen.get("section") or "??"
+        kept_section_counts[section_code] = kept_section_counts.get(section_code, 0) + 1
+
+        for entry in grouped:
+            if entry is chosen:
+                continue
+            logger.warning(
+                "Removed duplicate source URL in section %s (%s): %s; kept in section %s (%s): %s",
+                (entry.get("section") or "??"),
+                entry.get("title") or "",
+                entry.get("source_url") or "",
+                (chosen.get("section") or "??"),
+                chosen.get("title") or "",
+                chosen.get("source_url") or "",
+            )
+
+    removed = 0
+
+    out: list[str] = []
+    for entry in parsed_blocks:
+        if entry.get("type") == "line":
+            out.append(entry["line"])
+            continue
+        if int(entry["id"]) in keep_item_ids:
+            out.extend(entry["block"])
         else:
             removed += 1
-        current_item_id += 1
 
     if removed:
         logger.warning("Removed %d duplicate item(s) by source URL.", removed)
@@ -1187,6 +1307,69 @@ def _fill_empty_sections_from_intro(markdown: str) -> str:
     return "\n".join(out)
 
 
+def _repair_numbered_section_structure(markdown: str) -> str:
+    """Repair malformed numbered section wrappers and missing separators."""
+    lines = markdown.splitlines()
+    section_header_line_re = re.compile(r"^\s*(<h3>-\s*(\d{2})\s+.+\s*-</h3>)\s*$")
+    numbered_codes = {f"{n:02d}" for n in range(1, 8)}
+
+    # Pass 1: ensure every numbered <h3> has <div align="center"> wrapper.
+    normalized: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        match = section_header_line_re.match(line)
+        if not match or match.group(2) not in numbered_codes:
+            normalized.append(line)
+            i += 1
+            continue
+
+        header_line = f"  {match.group(1)}"
+
+        prev_non_empty = next((x.strip() for x in reversed(normalized) if x.strip()), "")
+        if prev_non_empty != '<div align="center">':
+            normalized.append('<div align="center">')
+
+        normalized.append(header_line)
+
+        next_stripped = lines[i + 1].strip() if i + 1 < len(lines) else ""
+        if next_stripped == "</div>":
+            normalized.append("</div>")
+            i += 2
+        else:
+            normalized.append("</div>")
+            i += 1
+
+    # Pass 2: ensure numbered sections are separated by `---`.
+    repaired: list[str] = []
+    idx = 0
+    while idx < len(normalized):
+        current = normalized[idx]
+        stripped = current.strip()
+
+        is_numbered_section_div = False
+        if stripped == '<div align="center">':
+            lookahead = idx + 1
+            while lookahead < len(normalized) and not normalized[lookahead].strip():
+                lookahead += 1
+            if lookahead < len(normalized):
+                code = _extract_section_code(normalized[lookahead])
+                is_numbered_section_div = code in numbered_codes
+
+        if is_numbered_section_div:
+            prev_non_empty = next((x.strip() for x in reversed(repaired) if x.strip()), "")
+            if prev_non_empty and prev_non_empty != "---":
+                if repaired and repaired[-1].strip():
+                    repaired.append("")
+                repaired.append("---")
+                repaired.append("")
+
+        repaired.append(current)
+        idx += 1
+
+    return "\n".join(repaired)
+
+
 def _build_messages(
     prompt_text: str,
     published_concepts: str,
@@ -1273,7 +1456,8 @@ def _collect_trusted_sources_for_prompt(
 
     source_context = "\n".join(lines) if lines else "(empty)"
     logger.info(
-        "Trusted source window [%s, %s): %d URL(s)",
+        "Trusted source window mode=%s [%s, %s): %d URL(s)",
+        (REPORT_WINDOW_MODE or "anchored").strip().lower(),
         window_start_utc.isoformat(),
         window_end_utc.isoformat(),
         len(allowed_urls),
@@ -1361,11 +1545,20 @@ def finalize_my_news_markdown(
         content,
         allowed_urls=allowed_urls if allowed_urls else None,
     )
-    content = _prune_items_without_valid_source(content)
+    if MY_NEWS_PRUNE_INVALID_SOURCE_ITEMS:
+        content = _prune_items_without_valid_source(content)
+    else:
+        logger.info(
+            "Skip pruning items without valid source URL "
+            "(MY_NEWS_PRUNE_INVALID_SOURCE_ITEMS=false)."
+        )
+    content = _enforce_core_paper_source_domains(content)
     content = _fill_empty_sections_from_intro(content)
     content = _dedupe_items_by_source_url(content)
+    content = _ensure_core_paper_fallback_text(content)
     _, images_dir = _ensure_daily_news_dirs(base_dir)
     content = _process_images_for_markdown(content, images_dir, bjt_now)
+    content = _repair_numbered_section_structure(content)
     output_file = _daily_news_filepath(base_dir, now_utc=now_utc)
     output_file.write_text(content, encoding="utf-8")
     concept = _extract_methodology_concept(content)

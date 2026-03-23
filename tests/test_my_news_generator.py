@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from src import my_news_generator
 from src.my_news_generator import (
     _dedupe_items_by_source_url,
+    _enforce_core_paper_source_domains,
     _fill_empty_sections_from_intro,
     _generate_with_continuation,
     _convert_scores_to_stars,
@@ -16,6 +17,7 @@ from src.my_news_generator import (
     _normalize_report_title_date,
     _process_images_for_markdown,
     _prune_items_without_valid_source,
+    _repair_numbered_section_structure,
     _sanitize_related_links,
     _strip_paragraph_labels,
     _strip_generation_chatter,
@@ -234,6 +236,12 @@ def test_strip_paragraph_labels_removes_glm_prefix():
     assert output.splitlines() == ["第一段", "第二段", "第三段", "第四段"]
 
 
+def test_strip_paragraph_labels_removes_wrapped_glm_paragraph_text():
+    markdown = "[正文段落：第一段摘要]\n【正文：第二段摘要】\n[正文: 第三段摘要 ]"
+    output = _strip_paragraph_labels(markdown)
+    assert output.splitlines() == ["第一段摘要", "第二段摘要", "第三段摘要"]
+
+
 def test_dedupe_items_by_source_url_prefers_section_balance_when_intro_fit_ties():
     markdown = """
 ## 02 AI应用案例
@@ -276,7 +284,33 @@ def test_prune_items_without_valid_source_drops_invalid_item():
     assert "无效条目" not in output
 
 
-def test_dedupe_items_by_source_url_keeps_first_item_across_sections():
+def test_enforce_core_paper_source_domains_only_for_section_03():
+    markdown = """
+## 03 核心论文
+
+### 1. 非学术来源
+正文
+**相关链接：** https://techcrunch.com/2026/03/22/x
+
+### 2. 学术来源
+正文
+**相关链接：** https://arxiv.org/abs/2603.12345
+
+## 04 前瞻观点
+
+### 1. 非学术来源仍保留
+正文
+**相关链接：** https://techcrunch.com/2026/03/22/y
+""".strip()
+
+    output = _enforce_core_paper_source_domains(markdown)
+    assert "非学术来源\n正文\n**相关链接：** https://techcrunch.com/2026/03/22/x" not in output
+    assert "学术来源" in output
+    assert "https://arxiv.org/abs/2603.12345" in output
+    assert "非学术来源仍保留" in output
+
+
+def test_dedupe_items_by_source_url_prefers_earlier_section_when_other_signals_tie():
     markdown = """
 ## 01 AI编程
 
@@ -293,6 +327,26 @@ def test_dedupe_items_by_source_url_keeps_first_item_across_sections():
     output = _dedupe_items_by_source_url(markdown)
     assert "第一条" in output
     assert "第二条" not in output
+
+
+def test_dedupe_items_by_source_url_keeps_ai_programming_item_over_section_07_duplicate():
+    markdown = """
+## 01 AI编程
+
+### 1. Cursor 编程能力更新
+正文A
+**相关链接：** https://example.com/cursor-news
+
+## 07 突破茧房
+
+### 1. 同一条被误放到突破茧房
+正文B
+**相关链接：** https://example.com/cursor-news
+""".strip()
+
+    output = _dedupe_items_by_source_url(markdown)
+    assert "Cursor 编程能力更新" in output
+    assert "同一条被误放到突破茧房" not in output
 
 
 def test_fill_empty_sections_from_intro_for_core_paper_section():
@@ -338,6 +392,32 @@ def test_strip_generation_chatter_removes_plan_lines():
     assert "我将开始为您生成" not in cleaned
     assert "首先创建目录结构" not in cleaned
     assert "<h3>- 导读 -</h3>" in cleaned
+
+
+def test_repair_numbered_section_structure_fixes_missing_div_and_separator():
+    markdown = """
+<div align="center">
+  <h3>- 03 核心论文 -</h3>
+</div>
+
+今日暂无符合标准的资讯。
+  <h3>- 04 前瞻观点 -</h3>
+</div>
+
+正文A
+
+<div align="center">
+  <h3>- 06 保持人味 -</h3>
+</div>
+
+灰色说明
+  <h3>- 07 突破茧房 -</h3>
+</div>
+""".strip()
+
+    output = _repair_numbered_section_structure(markdown)
+    assert "---\n\n<div align=\"center\">\n  <h3>- 04 前瞻观点 -</h3>\n</div>" in output
+    assert "---\n\n<div align=\"center\">\n  <h3>- 07 突破茧房 -</h3>\n</div>" in output
 
 
 def test_generate_with_continuation_merges_chunks(monkeypatch):
@@ -419,6 +499,128 @@ def test_finalize_my_news_markdown_dedupes_duplicate_source_url(monkeypatch, tmp
 
     assert "条目A" in output_markdown
     assert "条目B" not in output_markdown
+
+
+def test_finalize_my_news_markdown_adds_core_paper_fallback_after_domain_guard(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        my_news_generator,
+        "_process_images_for_markdown",
+        lambda markdown, images_dir, bjt_now: markdown,
+    )
+
+    markdown = """
+# 2026年3月23日 TBK日报：看见世界、发现自己
+
+## 03 核心论文
+
+### 1. 非学术来源
+正文
+**相关链接：** https://techcrunch.com/2026/03/22/x
+""".strip()
+
+    _, output_markdown = finalize_my_news_markdown(
+        tmp_path,
+        markdown,
+        {"https://techcrunch.com/2026/03/22/x"},
+        now_utc=datetime(2026, 3, 23, 0, 0, tzinfo=timezone.utc),
+        bjt_now=datetime(2026, 3, 23, 8, 0, tzinfo=timezone(timedelta(hours=8))),
+    )
+
+    assert "techcrunch.com/2026/03/22/x" not in output_markdown
+    assert "今日暂无符合标准的资讯（未提供可信学术来源URL）。" in output_markdown
+
+
+def test_finalize_my_news_markdown_repairs_numbered_sections(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        my_news_generator,
+        "_process_images_for_markdown",
+        lambda markdown, images_dir, bjt_now: markdown,
+    )
+
+    markdown = """
+# 2026年3月23日 TBK日报：看见世界、发现自己
+
+<div align="center">
+  <h3>- 03 核心论文 -</h3>
+</div>
+
+今日暂无符合标准的资讯。
+  <h3>- 04 前瞻观点 -</h3>
+</div>
+
+### 1. 观点A
+正文
+**相关链接：** https://example.com/a
+""".strip()
+
+    _, output_markdown = finalize_my_news_markdown(
+        tmp_path,
+        markdown,
+        {"https://example.com/a"},
+        now_utc=datetime(2026, 3, 23, 0, 0, tzinfo=timezone.utc),
+        bjt_now=datetime(2026, 3, 23, 8, 0, tzinfo=timezone(timedelta(hours=8))),
+    )
+
+    assert "<div align=\"center\">\n  <h3>- 04 前瞻观点 -</h3>\n</div>" in output_markdown
+    assert "---\n\n<div align=\"center\">\n  <h3>- 04 前瞻观点 -</h3>\n</div>" in output_markdown
+
+
+def test_finalize_my_news_markdown_keeps_invalid_source_items_by_default(monkeypatch, tmp_path):
+    monkeypatch.setattr(my_news_generator, "MY_NEWS_PRUNE_INVALID_SOURCE_ITEMS", False)
+    monkeypatch.setattr(
+        my_news_generator,
+        "_process_images_for_markdown",
+        lambda markdown, images_dir, bjt_now: markdown,
+    )
+
+    markdown = """
+# 2026年3月23日 TBK日报：看见世界、发现自己
+
+## 01 AI编程
+
+### 1. 无效来源
+正文
+**相关链接：** 链接缺失（请人工补充）
+""".strip()
+
+    _, output_markdown = finalize_my_news_markdown(
+        tmp_path,
+        markdown,
+        set(),
+        now_utc=datetime(2026, 3, 23, 0, 0, tzinfo=timezone.utc),
+        bjt_now=datetime(2026, 3, 23, 8, 0, tzinfo=timezone(timedelta(hours=8))),
+    )
+
+    assert "无效来源" in output_markdown
+
+
+def test_finalize_my_news_markdown_prunes_invalid_source_items_when_enabled(monkeypatch, tmp_path):
+    monkeypatch.setattr(my_news_generator, "MY_NEWS_PRUNE_INVALID_SOURCE_ITEMS", True)
+    monkeypatch.setattr(
+        my_news_generator,
+        "_process_images_for_markdown",
+        lambda markdown, images_dir, bjt_now: markdown,
+    )
+
+    markdown = """
+# 2026年3月23日 TBK日报：看见世界、发现自己
+
+## 01 AI编程
+
+### 1. 无效来源
+正文
+**相关链接：** 链接缺失（请人工补充）
+""".strip()
+
+    _, output_markdown = finalize_my_news_markdown(
+        tmp_path,
+        markdown,
+        set(),
+        now_utc=datetime(2026, 3, 23, 0, 0, tzinfo=timezone.utc),
+        bjt_now=datetime(2026, 3, 23, 8, 0, tzinfo=timezone(timedelta(hours=8))),
+    )
+
+    assert "无效来源" not in output_markdown
 
 
 def test_load_my_news_markdown_for_sending_prefers_latest_today_file(tmp_path):

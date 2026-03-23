@@ -55,6 +55,22 @@ def test_report_window_defaults_to_yesterday_8_to_today_8_for_utc8():
     assert end_utc == datetime(2026, 3, 15, 0, 0, tzinfo=timezone.utc)
 
 
+def test_report_window_supports_rolling_mode_last_24_hours():
+    now_utc = datetime(2026, 3, 15, 2, 30, tzinfo=timezone.utc)
+    start_utc, end_utc = _get_report_window(now_utc, 8, 8, mode="rolling")
+
+    assert start_utc == datetime(2026, 3, 14, 2, 30, tzinfo=timezone.utc)
+    assert end_utc == now_utc
+
+
+def test_report_window_unknown_mode_falls_back_to_anchored():
+    now_utc = datetime(2026, 3, 15, 2, 30, tzinfo=timezone.utc)  # UTC+8 = 10:30
+    start_utc, end_utc = _get_report_window(now_utc, 8, 8, mode="invalid")
+
+    assert start_utc == datetime(2026, 3, 14, 0, 0, tzinfo=timezone.utc)
+    assert end_utc == datetime(2026, 3, 15, 0, 0, tzinfo=timezone.utc)
+
+
 def test_append_translation_for_english_content(monkeypatch):
     monkeypatch.setattr("src.translator.is_english_only", lambda text: text.startswith("Hello world"))
     monkeypatch.setattr(

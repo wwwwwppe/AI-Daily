@@ -127,6 +127,7 @@ HTTPS_PROXY: str = os.getenv("HTTPS_PROXY", os.getenv("https_proxy", HTTP_PROXY)
 REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT") or "15")
 
 # Report window: include content published within [yesterday HH:00, today HH:00)
+REPORT_WINDOW_MODE: str = (os.getenv("REPORT_WINDOW_MODE") or "rolling").strip().lower()
 REPORT_WINDOW_HOUR: int = int(os.getenv("REPORT_WINDOW_HOUR") or "8")
 REPORT_WINDOW_TZ_OFFSET: int = int(os.getenv("REPORT_WINDOW_TZ_OFFSET") or "8")
 
@@ -153,5 +154,8 @@ MY_NEWS_REQUIRED_MARKER: str = os.getenv("MY_NEWS_REQUIRED_MARKER", "- 导读 -"
 MY_NEWS_MAX_WAIT_SECONDS: int = int(os.getenv("MY_NEWS_MAX_WAIT_SECONDS") or "600")
 MY_NEWS_RETRY_INTERVAL_SECONDS: int = int(
     os.getenv("MY_NEWS_RETRY_INTERVAL_SECONDS") or "20"
+)
+MY_NEWS_PRUNE_INVALID_SOURCE_ITEMS: bool = (
+    (os.getenv("MY_NEWS_PRUNE_INVALID_SOURCE_ITEMS") or "false").lower() == "true"
 )
 

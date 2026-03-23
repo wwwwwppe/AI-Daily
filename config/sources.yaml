@@ -74,6 +74,30 @@ rss_sources:
     url: https://arxiv.org/rss/cs.AI
     max_items: 5
 
+  - name: arXiv CS.LG (latest papers)
+    url: https://arxiv.org/rss/cs.LG
+    max_items: 5
+
+  - name: Nature (latest)
+    url: https://www.nature.com/nature.rss
+    max_items: 4
+
+  - name: Science (latest issue)
+    url: https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science
+    max_items: 4
+
+  - name: PNAS (latest)
+    url: https://www.pnas.org/rss/current.xml
+    max_items: 4
+
+  - name: bioRxiv (all subjects)
+    url: https://connect.biorxiv.org/biorxiv_xml.php?subject=all
+    max_items: 4
+
+  - name: ACL Anthology (latest)
+    url: https://aclanthology.org/feed.xml
+    max_items: 4
+
   - name: Papers With Code
     url: https://paperswithcode.com/news/rss
     max_items: 3
