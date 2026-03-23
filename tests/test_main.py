@@ -7,6 +7,7 @@ from main import (
     _append_translation_for_english_content,
     _filter_items_for_window,
     _get_report_window,
+    _parse_args,
 )
 
 
@@ -73,3 +74,15 @@ def test_append_translation_for_english_content(monkeypatch):
     assert "translation" not in enriched[1]
     assert enriched[2]["translation"] == "你好，世界"
     assert enriched[3]["translation"] == "（翻译服务暂时不可用）"
+
+
+def test_parse_args_defaults_to_email_mode(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["main.py"])
+    args = _parse_args()
+    assert args.mode == "email"
+
+
+def test_parse_args_accepts_my_news_mode(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["main.py", "--mode", "my-news"])
+    args = _parse_args()
+    assert args.mode == "my-news"

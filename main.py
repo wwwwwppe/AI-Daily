@@ -110,6 +110,12 @@ def _parse_args() -> argparse.Namespace:
         description="Generate and send the daily AI newsletter."
     )
     parser.add_argument(
+        "--mode",
+        choices=["email", "my-news"],
+        default="email",
+        help="Output mode: 'email' (default) or 'my-news' markdown via DeepSeek.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Render the email and print it to stdout without sending.",
@@ -125,6 +131,14 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     now_utc = datetime.now(timezone.utc)
+
+    if args.mode == "my-news":
+        from src.my_news_generator import generate_my_news_markdown
+
+        output_file, _ = generate_my_news_markdown(Path(__file__).parent)
+        logger.info("my-news markdown saved to %s", output_file.resolve())
+        print(f"日报已生成并保存：{output_file}")
+        return
 
     # ── 1. Fetch content ────────────────────────────────────────────────
     logger.info("── Step 1/3: Fetching news from RSS feeds …")

@@ -125,3 +125,11 @@ TRANSLATE_API_URL: str = os.getenv(
     "TRANSLATE_API_URL",
     "https://translate.googleapis.com/translate_a/single",
 )
+
+# DeepSeek (optional, for my-news markdown generation)
+DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_API_URL: str = os.getenv(
+    "DEEPSEEK_API_URL", "https://api.deepseek.com/chat/completions"
+)
+DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_TIMEOUT: int = int(os.getenv("DEEPSEEK_TIMEOUT") or "60")

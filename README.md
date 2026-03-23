@@ -98,6 +98,15 @@ cp .env.example .env
 |------|------|
 | `TWITTER_BEARER_TOKEN` | Twitter API v2 Bearer Token。不填则跳过推文抓取，仍可正常发送新闻版日报 |
 
+#### DeepSeek（可选，仅 `--mode my-news` 需要）
+
+| 变量 | 说明 |
+|------|------|
+| `DEEPSEEK_API_KEY` | DeepSeek API Key |
+| `DEEPSEEK_API_URL` | DeepSeek Chat Completions API 地址（默认官方地址） |
+| `DEEPSEEK_MODEL` | 使用的模型名称（默认 `deepseek-chat`） |
+| `DEEPSEEK_TIMEOUT` | 请求超时秒数（默认 `60`） |
+
 ### 3. 配置收件人
 
 方式一：在 `.env` 中设置
@@ -118,6 +127,9 @@ bob@company.com
 ```bash
 # 正常运行（抓取内容并发送邮件）
 python main.py
+
+# 生成 my-news 样式 Markdown 日报（调用 DeepSeek API，输出到 daily-news/）
+python main.py --mode my-news
 
 # 预览模式（将渲染的 HTML 保存为文件，不发送邮件）
 python main.py --output preview.html
