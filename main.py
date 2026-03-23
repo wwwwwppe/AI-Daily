@@ -12,8 +12,10 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time as time_module
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
+from typing import Callable
 
 # Configure logging before any local imports
 logging.basicConfig(
@@ -116,6 +118,23 @@ def _parse_args() -> argparse.Namespace:
         help="Output mode: 'email' (default) or 'my-news' markdown via DeepSeek.",
     )
     parser.add_argument(
+        "--my-news-action",
+        choices=["full", "generate", "send"],
+        default="full",
+        help=(
+            "Only for --mode my-news: 'full' (generate+send, default), "
+            "'generate' (generate only), 'send' (send existing markdown only)."
+        ),
+    )
+    parser.add_argument(
+        "--my-news-file",
+        metavar="FILE",
+        help=(
+            "Only for --mode my-news --my-news-action send: "
+            "send this markdown file instead of auto-selecting today's generated file."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Render the email and print it to stdout without sending.",
@@ -128,16 +147,224 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _contains_required_marker(markdown: str, marker: str) -> bool:
+    return marker.strip() in (markdown or "")
+
+
+def _generate_my_news_once(base_dir: Path) -> tuple[Path, str]:
+    from src.my_news_generator import generate_my_news_markdown
+
+    return generate_my_news_markdown(base_dir)
+
+
+def _prepare_my_news_generation_context(base_dir: Path):
+    from src.my_news_generator import prepare_my_news_generation_context
+
+    return prepare_my_news_generation_context(base_dir)
+
+
+def _generate_my_news_candidate(context) -> str:
+    from src.my_news_generator import generate_my_news_candidate_markdown
+
+    markdown, _ = generate_my_news_candidate_markdown(
+        context.messages,
+        context.bjt_now,
+    )
+    return markdown
+
+
+def _build_my_news_retry_messages(context, failed_markdown: str, marker: str) -> None:
+    from src.my_news_generator import build_my_news_retry_messages
+
+    context.messages = build_my_news_retry_messages(
+        context.messages,
+        failed_markdown,
+        marker,
+    )
+
+
+def _finalize_my_news_markdown(base_dir: Path, markdown: str, context) -> tuple[Path, str]:
+    from src.my_news_generator import finalize_my_news_markdown
+
+    return finalize_my_news_markdown(
+        base_dir,
+        markdown,
+        context.allowed_urls,
+        now_utc=context.now_utc,
+        bjt_now=context.bjt_now,
+    )
+
+
+def _notify_my_news_developer_alert(subject: str, html_body: str) -> None:
+    from src.config import DEVELOPER_ALERT_RECIPIENTS
+
+    if not DEVELOPER_ALERT_RECIPIENTS:
+        logger.warning(
+            "DEVELOPER_ALERT_RECIPIENTS is empty. Skip my-news developer alert email."
+        )
+        return
+
+    from src.email_sender import send_email
+
+    send_email(subject, html_body, recipients=DEVELOPER_ALERT_RECIPIENTS)
+
+
+def _generate_my_news_with_marker_guard(
+    base_dir: Path,
+    marker: str,
+    max_wait_seconds: int,
+    retry_interval_seconds: int,
+    monotonic_fn: Callable[[], float] = time_module.monotonic,
+    sleep_fn: Callable[[float], None] = time_module.sleep,
+) -> tuple[Path, str]:
+    context = _prepare_my_news_generation_context(base_dir)
+    started = monotonic_fn()
+    last_output_file: Path | None = None
+    last_markdown = ""
+    attempt = 0
+
+    while monotonic_fn() - started < max_wait_seconds:
+        attempt += 1
+        markdown = _generate_my_news_candidate(context)
+        last_markdown = markdown
+        if _contains_required_marker(markdown, marker):
+            output_file, finalized_markdown = _finalize_my_news_markdown(
+                base_dir,
+                markdown,
+                context,
+            )
+            return output_file, finalized_markdown
+
+        elapsed = monotonic_fn() - started
+        remaining = max(0, max_wait_seconds - int(elapsed))
+        logger.warning(
+            "my-news attempt %d missing required marker '%s'; waiting and retrying (%ds left).",
+            attempt,
+            marker,
+            remaining,
+        )
+        if remaining <= 0:
+            break
+        _build_my_news_retry_messages(context, markdown, marker)
+        sleep_seconds = min(retry_interval_seconds, remaining)
+        if sleep_seconds > 0:
+            sleep_fn(float(sleep_seconds))
+
+    # Timeout reached: notify developers and do one final retry as requested.
+    alert_subject = "[AI-Daily告警] my-news 导读标记缺失，已触发超时重试"
+    alert_html = (
+        "<html><body>"
+        f"<p>my-news 在 {max_wait_seconds} 秒内未检测到必须标记：<strong>{marker}</strong></p>"
+        "<p>系统将执行一次最终重试。请检查模型配置与提示词。</p>"
+        "</body></html>"
+    )
+    try:
+        _notify_my_news_developer_alert(alert_subject, alert_html)
+    except Exception as exc:
+        logger.warning("Failed to send my-news developer alert: %s", exc)
+
+    if last_markdown:
+        _build_my_news_retry_messages(context, last_markdown, marker)
+    markdown = _generate_my_news_candidate(context)
+    if _contains_required_marker(markdown, marker):
+        output_file, finalized_markdown = _finalize_my_news_markdown(
+            base_dir,
+            markdown,
+            context,
+        )
+        return output_file, finalized_markdown
+
+    raise RuntimeError(
+        "my-news output does not contain required marker "
+        f"'{marker}' after timeout and final retry. No final file was saved."
+    )
+
+
 def main() -> None:
     args = _parse_args()
     now_utc = datetime.now(timezone.utc)
 
     if args.mode == "my-news":
-        from src.my_news_generator import generate_my_news_markdown
+        from src.config import (
+            MY_NEWS_MAX_WAIT_SECONDS,
+            MY_NEWS_REQUIRED_MARKER,
+            MY_NEWS_RETRY_INTERVAL_SECONDS,
+        )
+        from src.my_news_generator import (
+            load_my_news_markdown_for_sending,
+            render_my_news_email,
+        )
 
-        output_file, _ = generate_my_news_markdown(Path(__file__).parent)
-        logger.info("my-news markdown saved to %s", output_file.resolve())
-        print(f"日报已生成并保存：{output_file}")
+        base_dir = Path(__file__).parent
+        action = args.my_news_action
+
+        if action == "send" and args.my_news_file:
+            preferred_file = Path(args.my_news_file)
+        else:
+            preferred_file = None
+
+        if action in ("full", "generate"):
+            output_file, markdown = _generate_my_news_with_marker_guard(
+                base_dir,
+                marker=MY_NEWS_REQUIRED_MARKER,
+                max_wait_seconds=MY_NEWS_MAX_WAIT_SECONDS,
+                retry_interval_seconds=MY_NEWS_RETRY_INTERVAL_SECONDS,
+            )
+            logger.info("my-news markdown saved to %s", output_file.resolve())
+            print(f"日报已生成并保存：{output_file}")
+            if action == "generate":
+                if args.output:
+                    _, html_body, _ = render_my_news_email(
+                        markdown,
+                        base_dir,
+                        use_cid_images=False,
+                    )
+                    out = Path(args.output)
+                    out.write_text(html_body, encoding="utf-8")
+                    logger.info("my-news HTML saved to %s", out.resolve())
+                elif args.dry_run:
+                    _, html_body, _ = render_my_news_email(
+                        markdown,
+                        base_dir,
+                        use_cid_images=False,
+                    )
+                    print(html_body)
+                return
+        else:
+            output_file, markdown = load_my_news_markdown_for_sending(
+                base_dir,
+                now_utc=now_utc,
+                preferred_file=preferred_file,
+            )
+            logger.info("Using existing my-news markdown: %s", output_file.resolve())
+            print(f"将发送已生成日报：{output_file}")
+
+        if args.output:
+            _, html_body, _ = render_my_news_email(
+                markdown,
+                base_dir,
+                use_cid_images=False,
+            )
+            out = Path(args.output)
+            out.write_text(html_body, encoding="utf-8")
+            logger.info("my-news HTML saved to %s", out.resolve())
+            return
+
+        subject, html_body, inline_images = render_my_news_email(
+            markdown,
+            base_dir,
+            use_cid_images=True,
+        )
+
+        if args.dry_run:
+            print(html_body)
+            return
+
+        logger.info("── my-news: Sending email …")
+        from src.email_sender import send_email
+
+        send_email(subject, html_body, inline_images=inline_images)
+        logger.info("my-news sent. ✓")
         return
 
     # ── 1. Fetch content ────────────────────────────────────────────────

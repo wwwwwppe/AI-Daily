@@ -8,8 +8,11 @@ Supports two backends, selected via the EMAIL_BACKEND env var:
 from __future__ import annotations
 
 import logging
+import mimetypes
 import smtplib
 import ssl
+from pathlib import Path
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -33,19 +36,54 @@ logger = logging.getLogger(__name__)
 # SMTP backend
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _send_smtp(subject: str, html_body: str, recipients: list[str]) -> None:
+def _build_smtp_message(
+    subject: str,
+    html_body: str,
+    recipients: list[str],
+    inline_images: dict[str, Path] | None = None,
+) -> MIMEMultipart:
+    from_header = f"{EMAIL_FROM_NAME} <{EMAIL_FROM_ADDRESS}>"
+
+    msg = MIMEMultipart("related")
+    msg["Subject"] = subject
+    msg["From"] = from_header
+    msg["To"] = ", ".join(recipients)
+
+    alternative = MIMEMultipart("alternative")
+    alternative.attach(MIMEText(html_body, "html", "utf-8"))
+    msg.attach(alternative)
+
+    for cid, image_path in (inline_images or {}).items():
+        try:
+            data = image_path.read_bytes()
+        except Exception as exc:
+            logger.warning("Failed to read inline image '%s': %s", image_path, exc)
+            continue
+
+        mime_type, _ = mimetypes.guess_type(str(image_path))
+        subtype = "jpeg"
+        if mime_type and "/" in mime_type:
+            subtype = mime_type.split("/", 1)[1]
+        image_part = MIMEImage(data, _subtype=subtype)
+        image_part.add_header("Content-ID", f"<{cid}>")
+        image_part.add_header("Content-Disposition", "inline", filename=image_path.name)
+        msg.attach(image_part)
+
+    return msg
+
+
+def _send_smtp(
+    subject: str,
+    html_body: str,
+    recipients: list[str],
+    inline_images: dict[str, Path] | None = None,
+) -> None:
     if not SMTP_HOST:
         raise ValueError("SMTP_HOST is not configured.")
     if not EMAIL_FROM_ADDRESS:
         raise ValueError("EMAIL_FROM_ADDRESS is not configured.")
 
-    from_header = f"{EMAIL_FROM_NAME} <{EMAIL_FROM_ADDRESS}>"
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = from_header
-    msg["To"] = ", ".join(recipients)
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
+    msg = _build_smtp_message(subject, html_body, recipients, inline_images=inline_images)
 
     context = ssl.create_default_context()
 
@@ -69,7 +107,12 @@ def _send_smtp(subject: str, html_body: str, recipients: list[str]) -> None:
 # SendGrid backend
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _send_sendgrid(subject: str, html_body: str, recipients: list[str]) -> None:
+def _send_sendgrid(
+    subject: str,
+    html_body: str,
+    recipients: list[str],
+    inline_images: dict[str, Path] | None = None,
+) -> None:
     try:
         from sendgrid import SendGridAPIClient  # type: ignore[import]
         from sendgrid.helpers.mail import (  # type: ignore[import]
@@ -95,6 +138,9 @@ def _send_sendgrid(subject: str, html_body: str, recipients: list[str]) -> None:
         html_content=html_body,
     )
 
+    if inline_images:
+        logger.warning("SendGrid backend currently ignores inline_images attachments.")
+
     personalization = Personalization()
     for addr in recipients:
         personalization.add_to(To(addr))
@@ -113,7 +159,12 @@ def _send_sendgrid(subject: str, html_body: str, recipients: list[str]) -> None:
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def send_email(subject: str, html_body: str) -> None:
+def send_email(
+    subject: str,
+    html_body: str,
+    inline_images: dict[str, Path] | None = None,
+    recipients: list[str] | None = None,
+) -> None:
     """
     Send *html_body* to all configured recipients.
 
@@ -127,7 +178,8 @@ def send_email(subject: str, html_body: str) -> None:
     RuntimeError
         On unexpected delivery errors.
     """
-    if not RECIPIENTS:
+    target_recipients = recipients if recipients is not None else RECIPIENTS
+    if not target_recipients:
         raise ValueError(
             "No recipients configured. "
             "Set EMAIL_RECIPIENTS in .env or add addresses to config/recipients.txt."
@@ -137,13 +189,13 @@ def send_email(subject: str, html_body: str) -> None:
         "Sending '%s' via %s backend to %d recipient(s)…",
         subject,
         EMAIL_BACKEND,
-        len(RECIPIENTS),
+        len(target_recipients),
     )
 
     if EMAIL_BACKEND == "sendgrid":
-        _send_sendgrid(subject, html_body, RECIPIENTS)
+        _send_sendgrid(subject, html_body, target_recipients, inline_images=inline_images)
     elif EMAIL_BACKEND == "smtp":
-        _send_smtp(subject, html_body, RECIPIENTS)
+        _send_smtp(subject, html_body, target_recipients, inline_images=inline_images)
     else:
         raise ValueError(
             f"Unknown EMAIL_BACKEND '{EMAIL_BACKEND}'. Choose 'smtp' or 'sendgrid'."

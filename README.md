@@ -103,9 +103,14 @@ cp .env.example .env
 | 变量 | 说明 |
 |------|------|
 | `DEEPSEEK_API_KEY` | DeepSeek API Key |
-| `DEEPSEEK_API_URL` | DeepSeek Chat Completions API 地址（默认官方地址） |
+| `DEEPSEEK_API_URL` | 模型接口地址（默认 DeepSeek；GLM 可用 `https://open.bigmodel.cn/api/anthropic`） |
 | `DEEPSEEK_MODEL` | 使用的模型名称（默认 `deepseek-chat`） |
 | `DEEPSEEK_TIMEOUT` | 请求超时秒数（默认 `60`） |
+| `MY_NEWS_MAX_TOKENS` | my-news 最大输出 tokens（默认 `0` 自动；GLM Anthropic 自动按大配额） |
+| `MY_NEWS_REQUIRED_MARKER` | my-news 结果必须包含的标记（默认 `- 导读 -`） |
+| `MY_NEWS_MAX_WAIT_SECONDS` | 缺少标记时的等待重试上限秒数（默认 `600`） |
+| `MY_NEWS_RETRY_INTERVAL_SECONDS` | 缺少标记时的重试间隔秒数（默认 `20`） |
+| `DEVELOPER_ALERT_RECIPIENTS` | 超时后开发者告警邮件收件人（逗号分隔） |
 
 ### 3. 配置收件人
 
@@ -128,8 +133,20 @@ bob@company.com
 # 正常运行（抓取内容并发送邮件）
 python main.py
 
-# 生成 my-news 样式 Markdown 日报（调用 DeepSeek API，输出到 daily-news/）
+# 生成 my-news 样式日报并发送邮件（调用 DeepSeek API，Markdown 落盘到 daily-news/）
 python main.py --mode my-news
+
+# 仅生成 my-news（建议 08:00 定时）
+python main.py --mode my-news --my-news-action generate
+
+# 仅发送已生成 my-news（建议 09:00 定时，默认发送当天最新一份）
+python main.py --mode my-news --my-news-action send
+
+# 指定某个已生成文件发送（用于人工修订后重发）
+python main.py --mode my-news --my-news-action send --my-news-file daily-news/202603230830_daily_news.md
+
+# 仅预览 my-news 邮件 HTML（不发送）
+python main.py --mode my-news --output my_news_preview.html
 
 # 预览模式（将渲染的 HTML 保存为文件，不发送邮件）
 python main.py --output preview.html
@@ -139,7 +156,10 @@ python main.py --dry-run
 ```
 
 `--mode my-news` 会尝试为每条资讯自动抓取代表图并下载到 `daily-news/images/`，
-同时将对应的 `![图片描述](images/...)` 引用写回生成的 Markdown 内容中。
+同时将对应的 `![图片描述](images/...)` 引用写回生成的 Markdown 内容中，并默认发送邮件。
+SMTP 发送时会以内嵌图片（CID）方式附带本地图片，`--output` 预览时使用本地文件路径展示图片。
+如果使用 `--my-news-action generate`，只会生成并落盘，不会发送邮件；
+`--my-news-action send` 会读取当天（北京时间）最新生成的 `daily-news/*_daily_news.md` 进行发送。
 
 ---
 

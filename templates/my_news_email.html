@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ subject }}</title>
+<style>
+  body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  body { margin: 0; padding: 0; background-color: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans CJK SC", sans-serif; }
+  img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+  a { color: #2563eb; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrapper { width: 100%; background-color: #f0f2f5; padding: 24px 0; }
+  .container { max-width: 760px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+
+  .header { background: linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 100%); padding: 36px 40px 28px; }
+  .header h1 { margin: 0 0 6px; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: .4px; }
+  .header .date { color: #93c5fd; font-size: 14px; }
+  .header .tagline { color: #bfdbfe; font-size: 13px; margin-top: 6px; }
+
+  .body { padding: 26px 36px 22px; color: #111827; line-height: 1.75; }
+  .body h1 { font-size: 24px; margin: 8px 0 16px; color: #0f172a; }
+  .body h2 { font-size: 20px; margin: 24px 0 10px; color: #0f172a; border-left: 4px solid #2563eb; padding-left: 10px; }
+  .body h3 { font-size: 18px; margin: 18px 0 8px; color: #111827; }
+  .body p { margin: 8px 0; font-size: 15px; color: #374151; }
+  .body strong { color: #111827; }
+  .body img { max-width: 100%; border-radius: 10px; margin: 10px 0; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  .body .divider { border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0; }
+  .body .spacer { height: 8px; }
+
+  .footer { background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 24px 40px; text-align: center; }
+  .footer p { margin: 4px 0; font-size: 12px; color: #9ca3af; }
+
+  @media only screen and (max-width: 600px) {
+    .header, .body, .footer { padding-left: 20px !important; padding-right: 20px !important; }
+    .header h1 { font-size: 22px !important; }
+    .body h1 { font-size: 20px !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="container">
+    <div class="header">
+      <h1>🧭 TBK 日报</h1>
+      <div class="date">{{ date }}</div>
+      <div class="tagline">看见世界 · 发现自己</div>
+    </div>
+
+    <div class="body">
+      {{ content_html | safe }}
+    </div>
+
+    <div class="footer">
+      <p>本邮件由 AI 日报自动生成 · 内容来源于互联网公开信息</p>
+      <p>如需退订或修改订阅，请联系 IT 部门</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
+

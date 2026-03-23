@@ -85,6 +85,19 @@ def _load_recipients() -> list[str]:
 RECIPIENTS: list[str] = _load_recipients()
 
 
+def _parse_csv_env(name: str) -> list[str]:
+    values: list[str] = []
+    raw = os.getenv(name, "")
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            values.append(part)
+    return values
+
+
+DEVELOPER_ALERT_RECIPIENTS: list[str] = _parse_csv_env("DEVELOPER_ALERT_RECIPIENTS")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # News / social sources
 # ─────────────────────────────────────────────────────────────────────────────
@@ -133,3 +146,12 @@ DEEPSEEK_API_URL: str = os.getenv(
 )
 DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 DEEPSEEK_TIMEOUT: int = int(os.getenv("DEEPSEEK_TIMEOUT") or "60")
+
+# my-news generation output limit (provider-specific hard caps still apply)
+MY_NEWS_MAX_TOKENS: int = int(os.getenv("MY_NEWS_MAX_TOKENS") or "0")
+MY_NEWS_REQUIRED_MARKER: str = os.getenv("MY_NEWS_REQUIRED_MARKER", "- 导读 -")
+MY_NEWS_MAX_WAIT_SECONDS: int = int(os.getenv("MY_NEWS_MAX_WAIT_SECONDS") or "600")
+MY_NEWS_RETRY_INTERVAL_SECONDS: int = int(
+    os.getenv("MY_NEWS_RETRY_INTERVAL_SECONDS") or "20"
+)
+

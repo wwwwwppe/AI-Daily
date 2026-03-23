@@ -7,3 +7,4 @@ beautifulsoup4==4.12.3
 lxml==5.3.0
 # For sending email via SMTP or SendGrid
 sendgrid==6.11.0
+pytest==8.3.5

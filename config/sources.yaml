@@ -100,6 +100,23 @@ rss_sources:
     url: https://36kr.com/feed
     max_items: 3
 
+  # ── 物流 / 供应链（用于补充 AI+物流案例）────────────────────────────────────
+  - name: Supply Chain Dive
+    url: https://www.supplychaindive.com/feeds/news/
+    max_items: 5
+
+  - name: Logistics Manager
+    url: https://www.logisticsmanager.com/feed/
+    max_items: 5
+
+  - name: SupplyChainBrain (Supply Chain Technology)
+    url: https://www.supplychainbrain.com/rss/topic/1177-supply-chain-technology
+    max_items: 5
+
+  - name: Global Trade Magazine
+    url: https://www.globaltrademag.com/feed/
+    max_items: 4
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Twitter / X influencer accounts to follow
 # Requires TWITTER_BEARER_TOKEN in .env

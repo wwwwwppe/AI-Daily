@@ -3,6 +3,7 @@ tests/test_email_sender.py  –  Unit tests for the email sender module.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -46,6 +47,53 @@ def test_smtp_ssl_backend_called(mock_smtp_ssl, monkeypatch):
 
     send_email(SUBJECT, HTML)
     mock_smtp_ssl.assert_called_once()
+
+
+@patch("src.email_sender.smtplib.SMTP_SSL")
+def test_smtp_with_inline_images(mock_smtp_ssl, monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(sender, "RECIPIENTS", ["a@example.com"])
+    monkeypatch.setattr(sender, "EMAIL_BACKEND", "smtp")
+    monkeypatch.setattr(sender, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(sender, "SMTP_PORT", 465)
+    monkeypatch.setattr(sender, "SMTP_USE_SSL", True)
+    monkeypatch.setattr(sender, "SMTP_USERNAME", "user@example.com")
+    monkeypatch.setattr(sender, "SMTP_PASSWORD", "secret")
+    monkeypatch.setattr(sender, "EMAIL_FROM_ADDRESS", "noreply@example.com")
+    monkeypatch.setattr(sender, "EMAIL_FROM_NAME", "AI日报")
+
+    image_path = tmp_path / "a.jpg"
+    image_path.write_bytes(b"fake-bytes")
+
+    mock_server = MagicMock()
+    mock_smtp_ssl.return_value.__enter__ = lambda s: mock_server
+    mock_smtp_ssl.return_value.__exit__ = MagicMock(return_value=False)
+
+    send_email(SUBJECT, HTML, inline_images={"img1": image_path})
+
+    sent_raw = mock_server.sendmail.call_args.args[2]
+    assert "Content-ID: <img1>" in sent_raw
+
+
+@patch("src.email_sender.smtplib.SMTP_SSL")
+def test_send_email_uses_recipients_override(mock_smtp_ssl, monkeypatch):
+    monkeypatch.setattr(sender, "RECIPIENTS", ["default@example.com"])
+    monkeypatch.setattr(sender, "EMAIL_BACKEND", "smtp")
+    monkeypatch.setattr(sender, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(sender, "SMTP_PORT", 465)
+    monkeypatch.setattr(sender, "SMTP_USE_SSL", True)
+    monkeypatch.setattr(sender, "SMTP_USERNAME", "user@example.com")
+    monkeypatch.setattr(sender, "SMTP_PASSWORD", "secret")
+    monkeypatch.setattr(sender, "EMAIL_FROM_ADDRESS", "noreply@example.com")
+    monkeypatch.setattr(sender, "EMAIL_FROM_NAME", "AI日报")
+
+    mock_server = MagicMock()
+    mock_smtp_ssl.return_value.__enter__ = lambda s: mock_server
+    mock_smtp_ssl.return_value.__exit__ = MagicMock(return_value=False)
+
+    send_email(SUBJECT, HTML, recipients=["dev@example.com"])
+
+    rcpt_arg = mock_server.sendmail.call_args.args[1]
+    assert rcpt_arg == ["dev@example.com"]
 
 
 @patch("src.email_sender.smtplib.SMTP")
