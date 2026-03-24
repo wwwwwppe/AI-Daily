@@ -7,6 +7,8 @@ jobs:
   build-windows-exe:
     name: Build Windows 11 x64 .exe
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
@@ -45,6 +47,8 @@ jobs:
   build-ubuntu-deb:
     name: Build Ubuntu x64 .deb
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
