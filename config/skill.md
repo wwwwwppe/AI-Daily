@@ -113,7 +113,7 @@ description: |
 
 **要求**：寻找充满韧性、自我关怀与生命力量的真实触动故事、言论或哲思。
 
-**灰色说明**：*探索AI时代如何保持人的价值*
+**灰色说明**：`<p style="color: #9ca3af; font-size: 0.9em; text-align: center; margin-bottom: 1em;">探索AI时代如何保持人的价值</p>`
 
 ### 6. 突破茧房 (3条)
 
@@ -123,7 +123,7 @@ description: |
 
 **红线**：严禁涉及教唆违法犯罪、毒品、极端暴恐等内容。
 
-**灰色说明**：*以下这些消息，可能算法永远不会推荐给你*
+**灰色说明**：`<p style="color: #9ca3af; font-size: 0.9em; text-align: center; margin-bottom: 1em;">以下这些消息，可能算法永远不会推荐给你</p>`
 
 ## 内容深度与字数要求（关键）
 
@@ -275,7 +275,7 @@ description: |
 </div>
 
 <p style="color: #9ca3af; font-size: 0.9em; text-align: center; margin-bottom: 1em;">
-以下这些消息，算法可能永远不会推荐给你
+以下这些消息，可能算法永远不会推荐给你
 </p>
 
 **[新闻标题或观点核心词] [★★★★★]**
