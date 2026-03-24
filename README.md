@@ -296,23 +296,76 @@ twitter_accounts:
 
 也可在 Actions 页面手动触发工作流（支持预览模式和输出 HTML 文件）。
 
-### 关于 `.exe` 产物
+### 关于打包产物与可编辑配置
 
-项目支持 PyInstaller 打包，运行时会优先读取 `.exe` 同目录下的 `.env`。  
-`.exe` 属于构建产物，不建议提交到仓库；提交二进制文件不会改变 Agent 的运行逻辑，但会增加仓库体积并影响协作体验。
+项目支持 PyInstaller 打包。打包后运行时配置读取优先级如下：
 
-### GitHub 上直接打包（Windows x64 `.exe` / Ubuntu x64 `.deb`）
+1. 可执行文件同目录下的 `config/recipients.txt`、`config/sources.yaml`
+2. 可执行文件同目录下的 `.env`
+3. 若 `config/` 缺失，则回退到二进制内置默认配置（打包时 `--add-data`）
+
+推荐目录结构（Windows/Linux 便携版一致）：
+
+```text
+ai-daily/
+  ai-daily(.exe)
+  config/
+    recipients.txt
+    sources.yaml
+  .env
+```
+
+### GitHub 上直接打包（Windows x64 / Ubuntu x64）
 
 仓库已提供工作流：`.github/workflows/package_release.yml`。  
 在 **Actions → 📦 Package Builds → Run workflow** 可直接触发，完成后在该次运行的 Artifacts 中下载：
 
-- `ai-daily-windows-x64-exe`：`dist/ai-daily.exe`
+- `ai-daily-windows-x64-portable`：便携目录（含 `ai-daily.exe`、`config/`、`.env.example`）
 - `ai-daily-ubuntu-x64-deb`：`ai-daily_<version>_amd64.deb`
+- `ai-daily-ubuntu-x64-portable`：便携目录（含 `ai-daily`、`config/`、`.env.example`）
 
 Linux `.deb` 安装示例：
 
 ```bash
 sudo dpkg -i ai-daily_<version>_amd64.deb
+```
+
+`.deb` 安装后路径：
+
+- 程序与可编辑配置：`/opt/ai-daily/`
+- 启动命令：`/usr/local/bin/ai-daily`（软链到 `/opt/ai-daily/ai-daily`）
+- 首次安装会自动从 `.env.example` 生成 `/opt/ai-daily/.env`（若 `.env` 不存在）
+
+### 本地打包（得到“可执行文件 + config + .env”目录）
+
+Windows PowerShell：
+
+```powershell
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+pip install pyinstaller
+
+pyinstaller --noconfirm --clean --onefile --name ai-daily --add-data "config;config" --add-data "templates;templates" main.py
+
+New-Item -ItemType Directory -Force -Path package\ai-daily-windows-x64 | Out-Null
+Copy-Item dist\ai-daily.exe package\ai-daily-windows-x64\ai-daily.exe -Force
+Copy-Item config package\ai-daily-windows-x64\config -Recurse -Force
+Copy-Item .env.example package\ai-daily-windows-x64\.env -Force
+```
+
+Ubuntu：
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+pip install pyinstaller
+
+pyinstaller --noconfirm --clean --onefile --name ai-daily --add-data "config:config" --add-data "templates:templates" main.py
+
+mkdir -p package/ai-daily-linux-x64
+install -m 0755 dist/ai-daily package/ai-daily-linux-x64/ai-daily
+cp -r config package/ai-daily-linux-x64/config
+cp .env.example package/ai-daily-linux-x64/.env
 ```
 
 ---

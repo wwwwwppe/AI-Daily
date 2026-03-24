@@ -300,7 +300,10 @@ def main() -> None:
             render_my_news_email,
         )
 
-        base_dir = Path(__file__).parent
+        if getattr(sys, "frozen", False):
+            base_dir = Path(sys.executable).parent
+        else:
+            base_dir = Path(__file__).parent
         action = args.my_news_action
 
         if action == "send" and args.my_news_file:

@@ -22,16 +22,40 @@ def _get_base_dir() -> Path:
         return Path(__file__).parent.parent
 
 
-def _get_data_dir() -> Path:
-    """Get directory for bundled data files (config/, templates/)."""
+def _get_bundled_data_dir() -> Path:
+    """Get directory where bundled data files live."""
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)
-    else:
-        return Path(__file__).parent.parent
+    return Path(__file__).parent.parent
+
+
+def _get_runtime_data_dir(base_dir: Path, bundled_data_dir: Path) -> Path:
+    """Prefer editable external config near executable/project; fallback to bundled data."""
+    external_config_dir = base_dir / "config"
+    if external_config_dir.exists() and external_config_dir.is_dir():
+        return base_dir
+    return bundled_data_dir
+
+
+def _resolve_config_file(base_dir: Path, bundled_data_dir: Path, filename: str) -> Path:
+    """Resolve config file with external-first lookup and bundled fallback."""
+    candidates = [
+        base_dir / "config" / filename,
+        bundled_data_dir / "config" / filename,
+    ]
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 _BASE_DIR = _get_base_dir()
-_DATA_DIR = _get_data_dir()
+_BUNDLED_DATA_DIR = _get_bundled_data_dir()
+_DATA_DIR = _get_runtime_data_dir(_BASE_DIR, _BUNDLED_DATA_DIR)
 
 # Load .env from exe directory (or project root in dev)
 load_dotenv(_BASE_DIR / ".env", override=False)
@@ -72,7 +96,7 @@ def _load_recipients() -> list[str]:
             recipients.add(addr)
 
     # 2. From config/recipients.txt
-    txt_file = _DATA_DIR / "config" / "recipients.txt"
+    txt_file = _resolve_config_file(_BASE_DIR, _BUNDLED_DATA_DIR, "recipients.txt")
     if txt_file.exists():
         for line in txt_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -103,7 +127,7 @@ DEVELOPER_ALERT_RECIPIENTS: list[str] = _parse_csv_env("DEVELOPER_ALERT_RECIPIEN
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _load_sources() -> dict:
-    sources_file = _DATA_DIR / "config" / "sources.yaml"
+    sources_file = _resolve_config_file(_BASE_DIR, _BUNDLED_DATA_DIR, "sources.yaml")
     with sources_file.open(encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 

@@ -37,11 +37,18 @@ jobs:
             --add-data "templates;templates" `
             main.py
 
+      - name: Assemble portable directory (Windows)
+        run: |
+          New-Item -ItemType Directory -Force -Path package\ai-daily-windows-x64 | Out-Null
+          Copy-Item dist\ai-daily.exe package\ai-daily-windows-x64\ai-daily.exe -Force
+          Copy-Item config package\ai-daily-windows-x64\config -Recurse -Force
+          Copy-Item .env.example package\ai-daily-windows-x64\.env.example -Force
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ai-daily-windows-x64-exe
-          path: dist/ai-daily.exe
+          name: ai-daily-windows-x64-portable
+          path: package/ai-daily-windows-x64
           retention-days: 7
 
   build-ubuntu-deb:
@@ -81,10 +88,14 @@ jobs:
         run: |
           VERSION="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}"
           PKG_ROOT="pkgroot"
+          APP_DIR="${PKG_ROOT}/opt/ai-daily"
 
-          mkdir -p "${PKG_ROOT}/DEBIAN" "${PKG_ROOT}/usr/local/bin" "${PKG_ROOT}/usr/share/doc/ai-daily"
-          install -m 0755 dist/ai-daily "${PKG_ROOT}/usr/local/bin/ai-daily"
+          mkdir -p "${PKG_ROOT}/DEBIAN" "${APP_DIR}/config" "${PKG_ROOT}/usr/local/bin" "${PKG_ROOT}/usr/share/doc/ai-daily"
+          install -m 0755 dist/ai-daily "${APP_DIR}/ai-daily"
+          cp -r config/. "${APP_DIR}/config/"
+          cp .env.example "${APP_DIR}/.env.example"
           cp README.md "${PKG_ROOT}/usr/share/doc/ai-daily/README.md"
+          ln -s /opt/ai-daily/ai-daily "${PKG_ROOT}/usr/local/bin/ai-daily"
 
           cat > "${PKG_ROOT}/DEBIAN/control" <<EOF
           Package: ai-daily
@@ -93,10 +104,28 @@ jobs:
           Priority: optional
           Architecture: amd64
           Maintainer: AI Daily Maintainers
-          Description: AI Daily newsletter generator packaged as a standalone binary
+          Description: AI Daily newsletter generator with editable runtime config under /opt/ai-daily
           EOF
 
+          cat > "${PKG_ROOT}/DEBIAN/postinst" <<'EOF'
+          #!/bin/sh
+          set -e
+          if [ ! -f /opt/ai-daily/.env ] && [ -f /opt/ai-daily/.env.example ]; then
+            cp /opt/ai-daily/.env.example /opt/ai-daily/.env
+            chmod 600 /opt/ai-daily/.env || true
+          fi
+          exit 0
+          EOF
+          chmod 0755 "${PKG_ROOT}/DEBIAN/postinst"
+
           dpkg-deb --build "${PKG_ROOT}" "ai-daily_${VERSION}_amd64.deb"
+
+      - name: Assemble portable directory (Ubuntu)
+        run: |
+          mkdir -p package/ai-daily-linux-x64
+          install -m 0755 dist/ai-daily package/ai-daily-linux-x64/ai-daily
+          cp -r config package/ai-daily-linux-x64/config
+          cp .env.example package/ai-daily-linux-x64/.env.example
 
       - name: Upload Debian artifact
         uses: actions/upload-artifact@v4
@@ -104,3 +133,11 @@ jobs:
           name: ai-daily-ubuntu-x64-deb
           path: ai-daily_*_amd64.deb
           retention-days: 7
+
+      - name: Upload Linux portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-daily-ubuntu-x64-portable
+          path: package/ai-daily-linux-x64
+          retention-days: 7
+
