@@ -301,6 +301,20 @@ twitter_accounts:
 项目支持 PyInstaller 打包，运行时会优先读取 `.exe` 同目录下的 `.env`。  
 `.exe` 属于构建产物，不建议提交到仓库；提交二进制文件不会改变 Agent 的运行逻辑，但会增加仓库体积并影响协作体验。
 
+### GitHub 上直接打包（Windows x64 `.exe` / Ubuntu x64 `.deb`）
+
+仓库已提供工作流：`.github/workflows/package_release.yml`。  
+在 **Actions → 📦 Package Builds → Run workflow** 可直接触发，完成后在该次运行的 Artifacts 中下载：
+
+- `ai-daily-windows-x64-exe`：`dist/ai-daily.exe`
+- `ai-daily-ubuntu-x64-deb`：`ai-daily_<version>_amd64.deb`
+
+Linux `.deb` 安装示例：
+
+```bash
+sudo dpkg -i ai-daily_<version>_amd64.deb
+```
+
 ---
 
 ## 运行测试
