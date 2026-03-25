@@ -3,6 +3,3 @@
 # This file is optional: you can also set EMAIL_RECIPIENTS in your .env file.
 #
 # Example:
-# alice@example.com
-# bob@example.com
-# huyonggang@tbk-sys.com.cn
